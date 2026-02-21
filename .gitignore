@@ -1,0 +1,89 @@
+# -----------------------------
+# Python / packaging artifacts
+# -----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# -----------------------------
+# Virtual envs / tool state
+# -----------------------------
+.venv/
+venv/
+env/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.pyre/
+.cache/
+
+# -----------------------------
+# Test / coverage / logs
+# -----------------------------
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.log
+*.pid
+
+# -----------------------------
+# Editor / OS clutter
+# -----------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Local secrets and private data
+# -----------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.csr
+*.ovpn
+*.secrets.*
+*.secret
+*.secret.*
+*_secret
+*_secret.*
+credentials.json
+credentials.yaml
+credentials.yml
+token.json
+token.txt
+/secrets/
+/private/
+
+# -----------------------------
+# Local-only folders (machine/user specific)
+# -----------------------------
+tmp/
+temp/
+scratch/
+downloads/
+/datasets/
+/data/private/
+/data/local/
+
+# Existing sensitive local note
+sensitive.md
