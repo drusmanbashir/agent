@@ -1,0 +1,29 @@
+<svg width="640" height="640" viewBox="0 0 640 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="64" x2="560" y2="576" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F4C81"/>
+      <stop offset="1" stop-color="#0E8A8A"/>
+    </linearGradient>
+    <linearGradient id="card" x1="170" y1="160" x2="470" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#E6F4F4" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="64" y="64" width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <rect x="172" y="162" width="296" height="316" rx="30" fill="url(#card)"/>
+  <rect x="208" y="214" width="224" height="20" rx="10" fill="#0F4C81" fill-opacity="0.2"/>
+  <rect x="208" y="252" width="188" height="20" rx="10" fill="#0F4C81" fill-opacity="0.2"/>
+  <rect x="208" y="290" width="214" height="20" rx="10" fill="#0F4C81" fill-opacity="0.2"/>
+
+  <circle cx="228" cy="370" r="26" fill="#0E8A8A" fill-opacity="0.18"/>
+  <path d="M215 370.5L224 379.5L242 361.5" stroke="#0E8A8A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M330 350L404 350" stroke="#0F4C81" stroke-opacity="0.4" stroke-width="14" stroke-linecap="round"/>
+  <path d="M330 386L390 386" stroke="#0F4C81" stroke-opacity="0.28" stroke-width="14" stroke-linecap="round"/>
+
+  <circle cx="500" cy="490" r="56" fill="#FFFFFF"/>
+  <path d="M476 489H524" stroke="#0F4C81" stroke-width="13" stroke-linecap="round"/>
+  <path d="M500 465V513" stroke="#0F4C81" stroke-width="13" stroke-linecap="round"/>
+</svg>

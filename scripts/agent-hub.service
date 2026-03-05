@@ -1,0 +1,14 @@
+[Unit]
+Description=Agent Hub local web portal
+After=network-online.target graphical-session.target
+Wants=network-online.target graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ub/code/agent
+ExecStart=/home/ub/mambaforge/envs/dl/bin/python3 /home/ub/code/agent/agent_hub.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

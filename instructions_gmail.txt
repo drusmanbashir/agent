@@ -1,0 +1,95 @@
+AGENT INSTRUCTIONS
+
+1) AUTHENTICATION
+
+Authenticate with Google using OAuth2.
+
+Scopes required:
+
+Gmail read only
+
+Calendar read only
+
+Sheets read only
+
+2) INPUT PARAMETERS
+
+lookback_days: integer
+
+spreadsheet_id: "1BF6awvgWG4PZdugdB3u1P_1e6w3slXQNBqAk9jM4U5Y"
+
+calendar_id: primary
+
+assignee: "UB"
+
+3) EMAIL SCRAPE
+
+Query Gmail for threads updated within last lookback_days.
+
+Exclude system/automated senders (no-reply, noreply, unsubscribe patterns).
+
+For each thread:
+
+Detect threads where latest inbound (from others) message is after your last outbound.
+
+Mark thread as needs response.
+
+Output list with:
+
+thread id
+
+subject
+
+last inbound timestamp
+
+participants
+
+4) CALENDAR CHECK
+
+Query Google Calendar for events from today through next 7 days.
+
+Fetch:
+
+title
+
+start/end time
+
+attendees
+
+5) SHEETS PROCESS
+
+Read sheet with given spreadsheet_id.
+
+Find rows for upcoming week (Mon-Sun next week).
+
+Select rows where assignee column equals "UB".
+
+Extract:
+
+date
+
+time
+
+meeting name
+
+6) SCHEDULE MERGE
+
+Combine Calendar events and Sheet meetings into one list.
+
+Sort by date/time.
+
+Flag any overlapping time slots.
+
+8) NOTIFICATIONS
+
+Daily: list pending_emails + today’s and tomorrow’s events.
+
+Weekly (Friday): next_week_UB_assignments + any pending_emails older than lookback_days.
+
+9) DEFINITION RULES
+
+needs response = inbound message exists with no later outbound reply.
+
+Week = Monday to Sunday.
+
+Automated senders filtered by patterns.

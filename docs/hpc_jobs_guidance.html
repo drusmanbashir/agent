@@ -1,0 +1,7130 @@
+<!DOCTYPE html>
+<!-- saved from url=(0034)https://docs.hpc.qmul.ac.uk/using/ -->
+<html lang="en" class="js-focus-visible js" data-js-focus-visible=""><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+      
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High Performance Computing at Queen Mary University of London">
+      
+      
+        <meta name="author" content="ITS-Research">
+      
+      
+        <link rel="canonical" href="https://docs.hpc.qmul.ac.uk/using/">
+      
+      
+        <link rel="prev" href="https://docs.hpc.qmul.ac.uk/using/citing/">
+      
+      
+        <link rel="next" href="https://docs.hpc.qmul.ac.uk/using/jobscriptbuilder/">
+      
+      
+      <link rel="icon" href="https://docs.hpc.qmul.ac.uk/img/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>Submitting jobs - HPC @ QMUL</title>
+      
+    
+    
+      <link rel="stylesheet" href="./hpc_jobs_guidance_files/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="./hpc_jobs_guidance_files/palette.06af60db.min.css">
+      
+      
+  
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+  
+  <style>:root{--md-admonition-icon--bug:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M14%2012h-4v-2h4m0%206h-4v-2h4m6-6h-2.81a6%206%200%200%200-1.82-1.96L17%204.41%2015.59%203l-2.17%202.17a6%206%200%200%200-2.83%200L8.41%203%207%204.41l1.62%201.63C7.88%206.55%207.26%207.22%206.81%208H4v2h2.09c-.05.33-.09.66-.09%201v1H4v2h2v1c0%20.34.04.67.09%201H4v2h2.81c1.04%201.79%202.97%203%205.19%203s4.15-1.21%205.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20z%22/%3E%3C/svg%3E');--md-admonition-icon--example:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20448%20512%22%3E%3C%21--%21%20Font%20Awesome%20Free%206.7.2%20by%20%40fontawesome%20-%20https%3A//fontawesome.com%20License%20-%20https%3A//fontawesome.com/license/free%20%28Icons%3A%20CC%20BY%204.0%2C%20Fonts%3A%20SIL%20OFL%201.1%2C%20Code%3A%20MIT%20License%29%20Copyright%202024%20Fonticons%2C%20Inc.--%3E%3Cpath%20d%3D%22M50.7%2058.5%200%20160h208V32H93.7c-18.2%200-34.8%2010.3-43%2026.5M240%20160h208L397.3%2058.5c-8.2-16.2-24.8-26.5-43-26.5H240zm208%2032H0v224c0%2035.3%2028.7%2064%2064%2064h320c35.3%200%2064-28.7%2064-64z%22/%3E%3C/svg%3E');--md-admonition-icon--note:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M20.71%207.04c.39-.39.39-1.04%200-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41%200l-1.84%201.83%203.75%203.75M3%2017.25V21h3.75L17.81%209.93l-3.75-3.75z%22/%3E%3C/svg%3E');--md-admonition-icon--quote:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20448%20512%22%3E%3C%21--%21%20Font%20Awesome%20Free%206.7.2%20by%20%40fontawesome%20-%20https%3A//fontawesome.com%20License%20-%20https%3A//fontawesome.com/license/free%20%28Icons%3A%20CC%20BY%204.0%2C%20Fonts%3A%20SIL%20OFL%201.1%2C%20Code%3A%20MIT%20License%29%20Copyright%202024%20Fonticons%2C%20Inc.--%3E%3Cpath%20d%3D%22M219.3.5c3.1-.6%206.3-.6%209.4%200l200%2040C439.9%2042.7%20448%2052.6%20448%2064s-8.1%2021.3-19.3%2023.5L352%20102.9V160c0%2070.7-57.3%20128-128%20128S96%20230.7%2096%20160v-57.1l-48-9.6v65.1l15.7%2078.4c.9%204.7-.3%209.6-3.3%2013.3S52.8%20256%2048%20256H16c-4.8%200-9.3-2.1-12.4-5.9s-4.3-8.6-3.3-13.3L16%20158.4V86.6C6.5%2083.3%200%2074.3%200%2064c0-11.4%208.1-21.3%2019.3-23.5zM111.9%20327.7c10.5-3.4%2021.8.4%2029.4%208.5l71%2075.5c6.3%206.7%2017%206.7%2023.3%200l71-75.5c7.6-8.1%2018.9-11.9%2029.4-8.5%2065%2020.9%20112%2081.7%20112%20153.6%200%2017-13.8%2030.7-30.7%2030.7H30.7C13.8%20512%200%20498.2%200%20481.3c0-71.9%2047-132.7%20111.9-153.6%22/%3E%3C/svg%3E');--md-admonition-icon--tip:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M10%203h4v11h-4zm0%2018v-4h4v4z%22/%3E%3C/svg%3E');}</style>
+
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        
+        <link rel="stylesheet" href="./hpc_jobs_guidance_files/css.49ea35f2.css">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="./hpc_jobs_guidance_files/extra.css">
+    
+      <link rel="stylesheet" href="./hpc_jobs_guidance_files/jobscriptbuilder.css">
+    
+      <link rel="stylesheet" href="./hpc_jobs_guidance_files/all.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+   <link href="./hpc_jobs_guidance_files/glightbox.min.css" rel="stylesheet"><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="./hpc_jobs_guidance_files/glightbox.min.js"></script><meta name="theme-color" content="#009485"><meta name="color-scheme" content="light"></head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="red" data-md-color-media="">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="https://docs.hpc.qmul.ac.uk/using/#submitting-jobs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="https://docs.hpc.qmul.ac.uk/" title="HPC @ QMUL" class="md-header__button md-logo" aria-label="HPC @ QMUL" data-md-component="logo">
+      
+  <img src="./hpc_jobs_guidance_files/qm.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+    </label>
+    <div class="md-header__title md-header__title--active" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HPC @ QMUL
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Submitting jobs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="red" aria-label="Switch to dark mode" type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo" aria-label="Switch to light mode" type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required="">
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0">
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">Type to start searching</div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" style="top: 58px;">
+                <div class="md-sidebar__scrollwrap" style="height: 1054px;">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="https://docs.hpc.qmul.ac.uk/" title="HPC @ QMUL" class="md-nav__button md-logo" aria-label="HPC @ QMUL" data-md-component="logo">
+      
+  <img src="./hpc_jobs_guidance_files/qm.png" alt="logo">
+
+    </a>
+    HPC @ QMUL
+  </label>
+  
+  <ul class="md-nav__list">
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2">
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Request a service
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Request a service
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/hpc-account/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Request an HPC account
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/requesting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Request an application
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/requesting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Request storage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/upload_sshkey/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Upload public SSH key
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3">
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Introduction
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Introduction
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/linux_intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Linux introduction
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    HPC introduction
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Logging in
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/sshkeys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SSH keys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/usage_policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Usage policy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/mailinglists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Mailing lists
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/intro/getting_help/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting help
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4">
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    HPC compute nodes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            HPC compute nodes
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/ddg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DDG nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/ddy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DDY nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/rdg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RDG nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/sbg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SBG nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/sdv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SDV nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/sdx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SDX nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/smf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SMF nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/srm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SRM nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/vhm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VHM nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/xdg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    XDG nodes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/nodes/andrena/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Andrena cluster
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked="">
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Using the cluster
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Using the cluster
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/citing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Citing Apocrita in publications
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Submitting jobs
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="https://docs.hpc.qmul.ac.uk/using/" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Submitting jobs
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc">
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-scripts" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job scripts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#writing-your-job-scripts-with-a-text-editor" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Writing your job scripts with a text editor
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#simple-job-script" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Simple job script
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#resource-specification" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Resource specification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#memory-requests" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Memory requests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-runtimes" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job runtimes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#queues" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Queues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#high-priority-short-queue" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      High Priority Short Queue
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#environment-specification" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Environment specification
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#other-options" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Other options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-output" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job output
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#example-job-scripts" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Example job scripts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example job scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#serial-job-single-core" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Serial job (single-core)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#serial-job-multi-core" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Serial job (multi-core)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#parallel-job" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Parallel job
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#interactive-jobs" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Interactive jobs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#node-selection" class="md-nav__link md-nav__link--passed md-nav__link--active">
+    <span class="md-ellipsis">
+      Node selection
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-holds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job holds
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job holds">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#queuing-dependent-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Queuing dependent jobs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#further-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Further information
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/jobscriptbuilder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Job Script Builder
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/arrays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using arrays
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/monitoringjobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monitoring jobs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Job statistics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/debuggingjobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Debugging jobs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tuning job requests
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/UsingModules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using modules
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/usingGPU/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using GPUs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/compiling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Compiling C, C++ and Fortran Code
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/python_distributions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Choosing a Python distribution
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/manpages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Man pages
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/infiniband/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Infiniband
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Memory
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6">
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Storage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Storage
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Storage systems
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/quota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quotas
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scratch
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Archive
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/usingtmp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using $TMPDIR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/movingdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Moving data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/deleting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deleting files
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/backups_and_snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Backups and snapshots
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Public datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_10">
+        
+          
+          <label class="md-nav__link" for="__nav_6_10" id="__nav_6_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Globus
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_10">
+            <span class="md-nav__icon md-icon"></span>
+            Globus
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/create_account/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Creating an account
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/guest_collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guest collections
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/transfer_files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Transferring files
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/access_collection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Accessing a collection
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/sharing_data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sharing data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/managing_groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Managing groups
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/remove_access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Removing access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding and removing roles
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/storage/globus/globus_connect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Globus connect
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7">
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Application documentation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Application documentation
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Application list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3">
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Apptainer containers
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            Apptainer containers
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/containers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/containers/building/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Building containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/containers/using/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4">
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Languages
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Languages
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/anaconda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Anaconda
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/java/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Java
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/julia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Julia
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/lua/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Lua
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/miniconda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Miniconda
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/miniforge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Miniforge
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/perl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Perl
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Python
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/R/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    R
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/languages/ruby/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ruby
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5">
+        
+          
+          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Devtools and libraries
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
+            <span class="md-nav__icon md-icon"></span>
+            Devtools and libraries
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/devel/autotools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Autotools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/devel/boost/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Boost C++ Library
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/devel/papi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PAPI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6">
+        
+          
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Data management
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_6">
+            <span class="md-nav__icon md-icon"></span>
+            Data management
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/data/hdf5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    HDF5
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/data/udunits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    UDUNITS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7">
+        
+          
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Numerical libraries
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_7">
+            <span class="md-nav__icon md-icon"></span>
+            Numerical libraries
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/numerical/fftw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FFTW
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/numerical/gsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GSL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/numerical/mkl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Intel Math Kernel Library (MKL)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/dev/numerical/linalg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Linear algebra (BLAS and LAPACK)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8">
+        
+          
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    General applications
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_8">
+            <span class="md-nav__icon md-icon"></span>
+            General applications
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/dua/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dua
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/ffmpeg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FFmpeg
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/ghostscript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ghostscript
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/gnuparallel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GNU Parallel
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/metis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Metis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/mono/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Mono
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/pandoc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pandoc
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/pdftotext/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PDFtoText
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/phonemizer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Phonemizer
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/pigz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pigz
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/sqlite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SQLite
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/general/zstd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zstd
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_9">
+        
+          
+          <label class="md-nav__link" for="__nav_7_9" id="__nav_7_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Bioinformatics applications
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_9">
+            <span class="md-nav__icon md-icon"></span>
+            Bioinformatics applications
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/abyss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ABySS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/angsd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ANGSD
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/annovar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ANNOVAR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bamtools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BamTools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bamutil/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BamUtil
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bcftools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BCFtools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bcl2fastq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bcl2fastq
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bedops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BEDOPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bedtools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bedtools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BGEN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bismark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bismark
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/blast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BLAST+
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bowtie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bowtie
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bowtie2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bowtie2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bucky/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BUCKy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/busco/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BUSCO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/bwa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    BWA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/canu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Canu
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/cellranger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cell Ranger
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/cryolo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    crYOLO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/cufflinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cufflinks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/diamond/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DIAMOND
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/ensembl-vep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ensembl-VEP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/entrez/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Entrez
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/fastme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FastME
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/fastqc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Fastqc
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/freebayes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FreeBayes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/gatk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GATK
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/genometools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Genometools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/jellyfish/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Jellyfish
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/kraken2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Kraken2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/mafft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MAFFT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/maker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MAKER
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/masurca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MaSuRCA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/mcl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MCL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/minimap2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Minimap2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/mira/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MIRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/muscle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Muscle
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/nextflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Nextflow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/pgap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PGAP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/plink/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Plink
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/prank/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PRANK
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/qctool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Qctool
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/qualimap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Qualimap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/quast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    QUAST
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/raxml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RAxML
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/raxml-ng/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RAxML Next Generation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/relion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RELION
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/repeatmasker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RepeatMasker
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/repeatmodeler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RepeatModeler
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/rsem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RSEM
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/salmon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Salmon
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/samtools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SAMtools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/seqtk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Seqtk
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/shapeit5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SHAPEIT5
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/spaceranger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Space Ranger
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/spades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SPAdes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/sratools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SRA Tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Stacks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/star/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/subread/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Subread
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/transdecoder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TransDecoder
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/trimgalore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Trim Galore
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/trimmomatic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Trimmomatic
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/vcftools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VCFtools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/bio/wtdbg2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wtdbg2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_10">
+        
+          
+          <label class="md-nav__link" for="__nav_7_10" id="__nav_7_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Chemistry applications
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_10">
+            <span class="md-nav__icon md-icon"></span>
+            Chemistry applications
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/castep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CASTEP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/cp2k/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CP2K
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/dlpoly/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DL_POLY
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/gaussian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gaussian
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/gromacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Gromacs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/gulp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    GULP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/lammps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LAMMPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/openbabel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Open Babel
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/openmolcas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    OpenMolcas
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/orca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Orca
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/plumed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PLUMED
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/quantum_espresso/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantum Espresso
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/vasp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VASP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/chem/vmd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VMD
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_11">
+        
+          
+          <label class="md-nav__link" for="__nav_7_11" id="__nav_7_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Engineering applications
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_11">
+            <span class="md-nav__icon md-icon"></span>
+            Engineering applications
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/abaqus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Abaqus
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/ansys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ansys
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/comsol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    COMSOL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/cst_studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CST Studio
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/openfoam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    OpenFOAM
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/sems/starccm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Star-ccm+
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_12">
+        
+          
+          <label class="md-nav__link" for="__nav_7_12" id="__nav_7_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Machine learning
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_12">
+            <span class="md-nav__icon md-icon"></span>
+            Machine learning
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/alphafold2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AlphaFold 2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/alphafold3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AlphaFold 3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/colmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    COLMAP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/deeplabcut/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DeepLabCut
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/pytorch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    PyTorch
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/ml/tensorflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TensorFlow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_13">
+        
+          
+          <label class="md-nav__link" for="__nav_7_13" id="__nav_7_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Mathematical applications
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_13">
+            <span class="md-nav__icon md-icon"></span>
+            Mathematical applications
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/maths/maple/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Maple
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/maths/mathematica/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Mathematica
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/maths/matlab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Matlab
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/apps/maths/stata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Stata
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8">
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    OnDemand
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            OnDemand
+          </label>
+          <ul class="md-nav__list">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/colmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    COLMAP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/cst_studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CST Studio
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/deeplabcut/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DeepLabCut
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/igv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IGV
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/jupyter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Jupyter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/maple/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Maple
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/meshlab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MeshLab
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/paraview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ParaView
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/relion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RELION
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/rstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RStudio
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/starccm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Star-ccm+
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/stata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Stata
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/ondemand/tensorboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TensorBoard
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/github/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Github Enterprise
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/tier2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tier 2 HPC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/using/secure/grant_costing_calculator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Grant costing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/faqs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Frequently asked questions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/cheatsheets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cheatsheets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://blog.hpc.qmul.ac.uk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Blog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://docs.hpc.qmul.ac.uk/about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    About this site
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" style="top: 58px;">
+                <div class="md-sidebar__scrollwrap" style="height: 1054px;">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc">
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-scripts" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job scripts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#writing-your-job-scripts-with-a-text-editor" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Writing your job scripts with a text editor
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#simple-job-script" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Simple job script
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#resource-specification" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Resource specification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#memory-requests" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Memory requests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-runtimes" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job runtimes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#queues" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Queues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#high-priority-short-queue" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      High Priority Short Queue
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#environment-specification" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Environment specification
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#other-options" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Other options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-output" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Job output
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#example-job-scripts" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Example job scripts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example job scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#serial-job-single-core" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Serial job (single-core)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#serial-job-multi-core" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Serial job (multi-core)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#parallel-job" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Parallel job
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#interactive-jobs" class="md-nav__link md-nav__link--passed">
+    <span class="md-ellipsis">
+      Interactive jobs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#node-selection" class="md-nav__link md-nav__link--passed md-nav__link--active">
+    <span class="md-ellipsis">
+      Node selection
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#job-holds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job holds
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job holds">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#queuing-dependent-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Queuing dependent jobs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="https://docs.hpc.qmul.ac.uk/using/#further-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Further information
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="submitting-jobs">Submitting jobs<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#submitting-jobs" title="Permanent link">¶</a></h1>
+<p>All jobs run on the HPC systems should be submitted via the queuing system,
+<a href="http://en.wikipedia.org/wiki/Univa_Grid_Engine">Univa Grid Engine</a>.
+To submit a job it is necessary to write a script which describes the resources
+your job needs and how to run the job. This is then submitted via the <code>qsub</code>
+command.</p>
+<p>Common commands used to manipulate submitted jobs are:</p>
+<ul>
+<li><code>qstat</code> checks the status of submitted jobs.</li>
+<li><code>qhold</code> holds a job from running.</li>
+<li><code>qrls</code> releases a job from a held status.</li>
+<li><code>qdel</code> deletes a job from the queue, or a
+  <a href="https://docs.hpc.qmul.ac.uk/using/arrays/#deleting-specific-tasks-from-a-queued-array-job">specific task</a>
+   from an array.</li>
+</ul>
+<p>For more detailed information about any of the above commands, please refer to
+its <a href="https://docs.hpc.qmul.ac.uk/using/manpages/#univa-grid-engine-man-pages">man page</a>.</p>
+<p>Please also see our <a href="https://youtu.be/kXwnrDKkuIU">video</a> which describes the
+job submission process, checking node and queue statuses, exit codes and job
+optimisation (cores, memory and runtime).</p>
+<h2 id="job-scripts">Job scripts<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#job-scripts" title="Permanent link">¶</a></h2>
+<h3 id="writing-your-job-scripts-with-a-text-editor">Writing your job scripts with a text editor<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#writing-your-job-scripts-with-a-text-editor" title="Permanent link">¶</a></h3>
+<p>We recommend that you write your job scripts using a text editor installed
+on the cluster. The editors we support are as follows:</p>
+<ul>
+<li><code>vim</code> (pre-installed, no module required)</li>
+<li><code>nano</code> (preferred by beginners - requires <code>module load nano</code> to use)</li>
+</ul>
+<p>Whilst not supported by us, we also offer emacs, via the <code>module load emacs</code>.
+No other text editor is supported on Apocrita.</p>
+<div class="admonition warning">
+<p class="admonition-title">Job scripts written on Windows</p>
+<p>Job scripts transferred from a Windows PC contain invisible control characters
+that result in job submission failures, and require
+<a href="https://docs.hpc.qmul.ac.uk/using/debuggingjobs/#dos-windows-newline-characters">conversion</a> to use on
+the cluster.</p>
+</div>
+<p>To open a file called <code>example.sh</code>, run <code>vim example.sh</code> or <code>nano example.sh</code>.
+If the file exists in the current directory, it will be opened for editing,
+otherwise a new, empty file will be created.</p>
+<h3 id="simple-job-script">Simple job script<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#simple-job-script" title="Permanent link">¶</a></h3>
+<p>This is a simple job script requesting a single core, 1GB of ram and 1 hour
+runtime:</p>
+<div class="highlight"><pre><span></span><code>#!/bin/bash
+#$ -cwd           # Set the working directory for the job to the current directory
+#$ -pe smp 1      # Request 1 core
+#$ -l h_rt=1:0:0  # Request 1 hour runtime
+#$ -l h_vmem=1G   # Request 1GB RAM
+./code
+</code></pre></div>
+<p>This can then be run with <code>qsub</code>:</p>
+<div class="highlight"><pre><span></span><code>qsub example.sh
+</code></pre></div>
+<p>The main purpose of a job script is to request the required resources and setup
+the environment. The main resources to be requested on the cluster are cores,
+memory and runtime.</p>
+<p>Don't forget to load the application you need using the
+<a href="https://docs.hpc.qmul.ac.uk/using/UsingModules">module command</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Array jobs</p>
+<p>Note that if you intend to submit multiple similar jobs, you should submit
+them as an array instead.</p>
+<p>This reduces load on the scheduler and streamlines the job submission
+process. Please see the <a href="https://docs.hpc.qmul.ac.uk/using/arrays">Arrays section</a> for more details.</p>
+</div>
+<h3 id="resource-specification">Resource specification<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#resource-specification" title="Permanent link">¶</a></h3>
+<p>Resources are specified at the top of the file using the <code>#$ &lt;resource&gt;</code>
+syntax. As a minimum you should specify the following in your job scripts:</p>
+<ul>
+<li>The wallclock runtime of your job, using <code>-l h_rt</code>. This defaults to 1 hour
+  (see <a href="https://docs.hpc.qmul.ac.uk/using/#job-runtimes">below</a>).</li>
+<li>The amount of memory your job requires, using <code>-l h_vmem</code>.</li>
+</ul>
+<p>Grid engine supports the concept of "soft requests" which the scheduler will
+attempt to meet where possible - in general these should not be used here.</p>
+<h4 id="memory-requests">Memory requests<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#memory-requests" title="Permanent link">¶</a></h4>
+<p>For all jobs requesting <code>-pe smp</code>, memory requests are handled per core, so
+requesting <code>2</code> cores and <code>5G</code> would result in <code>2</code> cores and <code>10G</code>.</p>
+<p>So a request of:</p>
+<div class="highlight"><pre><span></span><code>#$ -l h_vmem=5G
+</code></pre></div>
+<p>would result in <code>5G</code> being allocated, whereas a request of:</p>
+<div class="highlight"><pre><span></span><code>#$ -pe smp 2
+#$ -l h_vmem=5G
+</code></pre></div>
+<p>would result in <code>10G</code> being allocated. If your job consumes more than this
+amount, it will be killed by the scheduler.</p>
+<p>If you fail to specify memory units, your job submission will fail with an
+error. This is to avoid accidentally specifying 1Byte for your job, which would
+be the default if units are not specified.</p>
+<div class="admonition warning">
+<p class="admonition-title">GPU job Memory</p>
+<p>Do not request more than 11G of memory per core (<code>-l h_vmem=11G</code>) for GPU
+job as it could lock out other users from using free GPUs.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">SMP job Memory</p>
+<p>With SMP jobs, if you don't specify memory with <code>-l h_vmem</code> you will get
+a default value of 1GB / core requested.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Parallel job Memory</p>
+<p>For parallel jobs, each node is booked for exclusive use and uses all
+available memory on each node: you do not need to specify a memory
+requirement.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Jobs requiring large amounts of RAM</p>
+<p>If you have jobs with very large RAM requirements you may want to make use
+of our public <a href="https://docs.hpc.qmul.ac.uk/nodes/smf">highmem</a> nodes. You will need to pass the
+<code>-l highmem</code> option in the job script. Jobs which do not require very
+large amounts of memory should submit to the regular nodes by not
+adding the <code>-l highmem</code> option.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Requesting exclusive use of a node</p>
+<p>Note that available memory on a node will be slightly lower than the
+theoretical maximum, due to memory consumed by Operating System processes.
+If your job requires a whole node, omitting the <code>-l h_vmem</code> option and
+choosing <code>-l exclusive</code> will request a full node and ensure that the
+maximum amount of available memory is used by your job. Note that the
+queuing time for a whole node is considerably longer than with small jobs.</p>
+<p>If requesting exclusive use of a node, please ensure that you correctly set
+<code>slots</code> to fill the node. Nodes booked for exclusive use do not need memory
+requirements specified.</p>
+<p>Requesting exclusive access may cause your job to queue for a long period
+because the scheduler needs to allocate all resources in a single node. As
+exclusive jobs block other jobs from running on the same node concurrently,
+please ensure the jobs are utilising all cores and memory correctly.</p>
+</div>
+<h4 id="job-runtimes">Job runtimes<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#job-runtimes" title="Permanent link">¶</a></h4>
+<p>Runtime, signified by <code>h_rt</code> in the job script, defines the maximum length
+of time a job is allow to run for. If the <code>h_rt</code> value is exceeded, the job
+will be killed automatically by the scheduler.</p>
+<p>While the number of cores and RAM quantity will impact the queuing time
+significantly, the maximum runtime has a very low impact on the queuing time.
+Since the job scheduler will kill a job that exceeds the runtime value, for
+most users the best thing to do is specify either:</p>
+<ul>
+<li>1 hour (to take advantage of the
+  <a href="https://docs.hpc.qmul.ac.uk/using/#high-priority-short-queue">high priority short queue</a>. This is the also
+  the default runtime if <code>h_rt</code> is not specified)</li>
+<li>240 hours (10 days - the maximum runtime)</li>
+</ul>
+<p>There are some edge cases that could mean a job with <code>h_rt</code> value of 1 or 3
+days will get queued ahead of a 10 day job, but these usually relate to
+situations where we have reserved resources at a future date (e.g. maintenance
+periods). There may also be some small benefit for users who run large
+multi-node parallel jobs too, since we commonly reserve resources for
+large jobs, but the main thing to remember is that you don’t want your job
+to die due to some arbitrary limit you have artificially set, so most users
+should just set 240 hours, unless they want to access the short queue.</p>
+<p>The 240 hour limit is a global setting, and cannot be changed for individual
+jobs or users. If you are submitting long running jobs, you should consider:</p>
+<ul>
+<li>Attempting to parallelise the job</li>
+<li>Consider if the job can be broken into smaller parts</li>
+<li>Profiling the code to check for bottlenecks</li>
+<li>Implementing checkpointing  (a method of regularly dumping the job's
+  state so that it can be restarted - check if your application supports this)</li>
+</ul>
+<h4 id="queues">Queues<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#queues" title="Permanent link">¶</a></h4>
+<p>Users should not specify a queue or project when submitting jobs: the scheduler
+is configured to assign jobs correctly to nodes, with preference for restricted
+nodes if you have access to them.</p>
+<h4 id="high-priority-short-queue">High Priority Short Queue<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#high-priority-short-queue" title="Permanent link">¶</a></h4>
+<p>For short jobs of up to one hour, we have created a high priority short queue
+to run these jobs with minimal queuing time, which is useful for job script
+validation, code syntax checking and resource optimisation. The short queue
+has been enabled on a variety of nodes, including those which have been
+purchased by other research groups that are not available to all users for
+jobs longer than 1 hour.</p>
+<p>An example use case for the short queue is to check that a job starts running
+correctly, modules have been loaded, the environment set, execution commands
+are found and their arguments can be understood, all in a short period of
+time. If there was an error and you submitted with more than 1 hour, it could
+be a few hours or days before the job starts running and immediately fails due
+to a typo or incorrect settings.</p>
+<p>If you would like to do some quick debugging or testing, run <code>qlogin</code> without
+any parameters to start an interactive job on the short queue since a default
+value of 1 hour is applied if you do not specify a <code>h_rt</code> value.</p>
+<h3 id="environment-specification">Environment specification<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#environment-specification" title="Permanent link">¶</a></h3>
+<p>The job script specifies the environment the job will execute in, this includes
+loaded modules and environment variables.</p>
+<p>A number of environment variables are also made available by UGE:</p>
+<div class="md-typeset__scrollwrap"><div class="md-typeset__table"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SGE_CWD_PATH</code></td>
+<td>Working directory</td>
+</tr>
+<tr>
+<td><code>SGE_O_WORKDIR</code></td>
+<td>Working directory when submitted</td>
+</tr>
+<tr>
+<td><code>TMPDIR</code></td>
+<td>Job specific temporary directory</td>
+</tr>
+<tr>
+<td><code>JOB_NAME</code></td>
+<td>Job Name</td>
+</tr>
+<tr>
+<td><code>QUEUE</code></td>
+<td>Queue</td>
+</tr>
+<tr>
+<td><code>PE</code></td>
+<td>Parallel Environment</td>
+</tr>
+<tr>
+<td><code>NSLOTS</code></td>
+<td>Number of slots</td>
+</tr>
+<tr>
+<td><code>NHOSTS</code></td>
+<td>Number of hosts</td>
+</tr>
+<tr>
+<td><code>SGE_HGR_m_mem_free</code></td>
+<td>Total memory requested (slots * mem)</td>
+</tr>
+<tr>
+<td><code>SGE_HGR_gpu</code></td>
+<td>ID of GPU granted</td>
+</tr>
+<tr>
+<td><code>SGE_BINDING</code></td>
+<td>Cores job is bound to on host</td>
+</tr>
+<tr>
+<td><code>SGE_TASK_FIRST</code></td>
+<td>First task in array</td>
+</tr>
+<tr>
+<td><code>SGE_TASK_LAST</code></td>
+<td>Last task in array</td>
+</tr>
+<tr>
+<td><code>SGE_TASK_STEPSIZE</code></td>
+<td>Array step size</td>
+</tr>
+<tr>
+<td><code>SGE_TASK_ID</code></td>
+<td>Current Task ID in array</td>
+</tr>
+<tr>
+<td><code>PE_HOSTFILE</code></td>
+<td>Location of host file for MPI</td>
+</tr>
+</tbody>
+</table></div></div>
+<p>Additional information for these options can be found on specific pages:</p>
+<ul>
+<li><a href="https://docs.hpc.qmul.ac.uk/using/usingGPU">GPUs</a></li>
+<li><a href="https://docs.hpc.qmul.ac.uk/storage/usingtmp/">TMPDIR</a></li>
+</ul>
+<h3 id="other-options">Other options<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#other-options" title="Permanent link">¶</a></h3>
+<div class="md-typeset__scrollwrap"><div class="md-typeset__table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-pe</code></td>
+<td>request a parallel environment - this will be either <code>smp</code> to request a number of cores on the same node or <code>parallel</code> to request more than one whole machine.</td>
+</tr>
+<tr>
+<td><code>-l exclusive</code></td>
+<td>requests exclusive use of a serial node (automatically applied to parallel nodes).</td>
+</tr>
+<tr>
+<td><code>-m e</code></td>
+<td>send an email once the job is completed. You can alternatively use <code>-m bea</code> to get notifications on job start, finish and abortion. Please avoid sending mail for array jobs, as the resulting quantity of messages tends to cause email service disruption</td>
+</tr>
+<tr>
+<td><code>-M email@example.com</code></td>
+<td>specify an alternate destination address for emails.</td>
+</tr>
+<tr>
+<td><code>-o</code></td>
+<td>redirect the standard output from the job.</td>
+</tr>
+<tr>
+<td><code>-e</code></td>
+<td>redirect the standard error from the job.</td>
+</tr>
+<tr>
+<td><code>-cwd</code></td>
+<td>execute the job from the current working directory.</td>
+</tr>
+<tr>
+<td><code>-j y</code></td>
+<td>combine the standard output and the standard error stream.</td>
+</tr>
+<tr>
+<td><code>-N</code></td>
+<td>give a specific name to the job. If this parameter is not specified, the job name will be the same as the name of the script being run.</td>
+</tr>
+</tbody>
+</table></div></div>
+<div class="admonition warning">
+<p class="admonition-title">Job Names</p>
+<p>Note the following characters are not allowed in job names:
+<code>",/:'\[]{}|()@%,`</code> and whitespace.
+<!---Note: Code tags used above because of backticks in string--></p>
+</div>
+<p>For full details on <code>qsub</code> options see the <code>qsub</code>
+<a href="https://docs.hpc.qmul.ac.uk/using/manpages/#univa-grid-engine-man-pages">man page</a>.</p>
+<h2 id="job-output">Job output<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#job-output" title="Permanent link">¶</a></h2>
+<p>Output from the job will include an output and an error file unless the <code>-j y</code>
+option is given to join the streams. The default naming scheme for these files
+is <code>&lt;jobname&gt;.o&lt;jobID&gt;</code> and <code>&lt;jobname&gt;.e&lt;jobID&gt;</code> and will contain all text sent
+to
+<a href="http://en.wikipedia.org/wiki/Standard_streams#Standard_output_.28stdout.29">standard output</a>
+and
+<a href="http://en.wikipedia.org/wiki/Standard_streams#Standard_error_.28stderr.29">standard error</a>
+respectively.</p>
+<p>For array jobs the filenames will also include the task id, such as
+<code>&lt;jobname&gt;.o&lt;jobid&gt;.&lt;taskid&gt;</code></p>
+<h2 id="example-job-scripts">Example job scripts<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#example-job-scripts" title="Permanent link">¶</a></h2>
+<h3 id="serial-job-single-core">Serial job (single-core)<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#serial-job-single-core" title="Permanent link">¶</a></h3>
+<p>Jobs which do not support multi-threading should use the single-core serial job
+script as seen below:</p>
+<div class="highlight"><pre><span></span><code>#!/bin/bash
+#$ -cwd           # Set the working directory for the job to the current directory
+#$ -j y           # Join stdout and stderr
+#$ -pe smp 1      # Request 1 CPU core
+#$ -l h_rt=1:0:0  # Request 1 hour runtime
+#$ -l h_vmem=1G   # Request 1GB RAM / core, i.e. 1GB total
+
+module load example
+
+./code
+</code></pre></div>
+<p>Adjust the memory and runtime requests as applicable. Please refer to the
+<a href="https://docs.hpc.qmul.ac.uk/using/#memory-requests">memory</a> and <a href="https://docs.hpc.qmul.ac.uk/using/#job-runtimes">runtime</a> sections for more
+information.</p>
+<h3 id="serial-job-multi-core">Serial job (multi-core)<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#serial-job-multi-core" title="Permanent link">¶</a></h3>
+<p>A multi-core serial job should be used for jobs which can use multiple CPU
+cores on a single machine, such as those using OpenMP, and only those jobs.
+Requesting many cores for a job which cannot use them is wasteful.</p>
+<div class="highlight"><pre><span></span><code>#!/bin/bash
+#$ -cwd           # Set the working directory for the job to the current directory
+#$ -j y           # Join stdout and stderr
+#$ -pe smp 4      # Request 4 CPU cores
+#$ -l h_rt=1:0:0  # Request 1 hour runtime
+#$ -l h_vmem=1G   # Request 1GB RAM / core, i.e. 4GB total
+
+module load example
+
+./code --threads ${NSLOTS}
+</code></pre></div>
+<p>Please check the application documentation for a threading option (common
+options include but are not limited to: <code>--threads</code>, <code>-t</code>, <code>--cores</code>,
+<code>--multicore</code>, <code>--parallel</code> and <code>-p</code>). We recommend using the value of
+<code>NSLOTS</code> to reference the number of cores requested rather than a hard-coded
+value, to ease the process when scaling up your job.</p>
+<p>If you are using running an application which supports OpenMP, you should check
+that the <code>OMP_NUM_THREADS</code> variable has been set correctly to the value of
+<code>NSLOTS</code>, otherwise your application may run with poor performance. Some
+application modules may automatically set this if unset when loaded. Check the
+application documentation pages for more information.</p>
+<h3 id="parallel-job">Parallel job<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#parallel-job" title="Permanent link">¶</a></h3>
+<p>Jobs which require multi-node parallel processing, such as those which use
+<a href="https://en.wikipedia.org/wiki/Message_Passing_Interface">MPI</a>, are run on
+nodes with a low-latency infiniband connection. You submission script will need
+to include the choice of infiniband-connected nodes to use.</p>
+<div class="admonition note">
+<p class="admonition-title">mpirun slots</p>
+<p>Using the <code>$NSLOTS</code> variable will automatically pass the number of
+requested cores to the mpirun command.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Exporting variables in multi-node MPI jobs</p>
+<p>When using MPI jobs across multiple nodes you may need explicitly to export
+environment variables to each of the MPI processes, such as when using
+libraries which are not found by default. The way to do this is explained
+in the documentation for the specific MPI implementation you are using.</p>
+<p>For example, to export the environment variable <code>LD_LIBRARY_PATH</code> using
+Open MPI you should use</p>
+<div class="highlight"><pre><span></span><code>mpirun -x LD_LIBRARY_PATH ...
+</code></pre></div>
+<p>With Intel MPI environment variables are usually exported by default, but
+when not, the corresponding option would look like</p>
+<div class="highlight"><pre><span></span><code>mpirun -genvlist LD_LIBRARY_PATH ...
+</code></pre></div>
+</div>
+<div class="highlight"><pre><span></span><code>#!/bin/bash
+#$ -cwd                 # Set the working directory for the job to the current directory
+#$ -j y
+#$ -pe parallel 96      # Request 96 cores/2 ddy nodes
+#$ -l infiniband=ddy-i  # Choose infiniband island (ddy-i)
+#$ -l h_rt=240:0:0      # Request 240 hours runtime
+
+module load intelmpi
+
+mpirun -np $NSLOTS ./code
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Single-node jobs on infiniband nodes</p>
+<p>Only run multi-node jobs in the <code>parallel</code> pe, single-node jobs should be
+run in the <code>smp</code> pe so they don't block larger parallel jobs from running.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Large parallel jobs</p>
+<p>If your job is requesting 120 or more cores, your job might queue for a
+long period of time and may benefit from running on a <a href="https://docs.hpc.qmul.ac.uk/tier2/">Tier 2</a>
+cluster instead of Apocrita. If you are unsure about your eligibility or
+have any questions about Tier 2 facilities, please
+<a href="mailto:its-research-support@qmul.ac.uk">contact us</a>.</p>
+</div>
+<h2 id="interactive-jobs">Interactive jobs<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#interactive-jobs" title="Permanent link">¶</a></h2>
+<p>The <code>qlogin</code> command can be used to schedule an interactive job. This accepts
+the same arguments as <code>qsub</code> (e.g. for requesting runtime) but without the
+leading <code>#$</code> you would put into a job script file. Instead of running a script,
+a <code>qlogin</code> presents a shell which can be used to run interactive commands on the
+node.</p>
+<p>For example, to request 2 cores and 1GB RAM per core for a total of 2GB RAM, for
+1 hour:</p>
+<div class="highlight"><pre><span></span><code>qlogin -pe smp 2 -l h_vmem=1G -l h_rt=1:0:0
+</code></pre></div>
+<p>Adjust your request as required. Unlike <a href="https://docs.hpc.qmul.ac.uk/using/#simple-job-script">job scripts</a>,
+interactive <code>qlogin</code> sessions aren't queued if the requested resources aren't
+immediately available. If you receive a message like this:</p>
+<div class="highlight"><pre><span></span><code>warning: no suitable queues
+Your job 1234567 ("QLOGIN") has been submitted
+waiting for interactive job to be scheduled ...
+Your "qlogin" request could not be scheduled, try again later.
+</code></pre></div>
+<p>Then you either need to try again later, lower your resource request or move
+your workload into a <a href="https://docs.hpc.qmul.ac.uk/using/#simple-job-script">job script</a> and submit it to the
+scheduler and it will be run once the requested resources become available.</p>
+<p>Interactive sessions should be used sparingly (for interactive debugging, etc.)
+since they use resources which could be used by batch jobs. You must have an
+active connection to the cluster throughout the entirety of an interactive
+job. If your connection drops, the session will end and you may lose your
+results. Batch jobs submitted with <code>qsub</code> do not require an active
+connection and will continue to run whilst you are not connected to the
+cluster.</p>
+<p>At busy times you may not be able to get an interactive session as there may be
+no spare cores to immediately service your request, however you will increase
+your chances considerably if you choose the default runtime of 1 hour.</p>
+<h2 id="node-selection">Node selection<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#node-selection" title="Permanent link">¶</a></h2>
+<p>In some situations, you may require your job to run on a certain node type
+(for example to select a certain CPU architecture or GPU type). All node
+selections are in the format <code>-l &lt;complex&gt;[=&lt;value&gt;]</code> where the value is only
+required for non-boolean complexes; The value can be either omitted or set
+to <code>TRUE</code> or <code>true</code> when requesting boolean complexes. See the below table
+for a list of supported node selections:</p>
+<div class="md-typeset__scrollwrap"><div class="md-typeset__table"><table>
+<thead>
+<tr>
+<th>Complex Name</th>
+<th>Description</th>
+<th>Supported Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cpuarch</code></td>
+<td>CPU architecture</td>
+<td><code>intel</code> and <code>amd</code></td>
+</tr>
+<tr>
+<td><code>exclusive</code></td>
+<td>Request entire nodes</td>
+<td>(boolean)</td>
+</tr>
+<tr>
+<td><code>gpu</code></td>
+<td>Request nodes with GPU support</td>
+<td>(boolean)</td>
+</tr>
+<tr>
+<td><code>gpu_type</code></td>
+<td>Run on specific GPU types</td>
+<td><code>ampere</code> and <code>volta</code></td>
+</tr>
+<tr>
+<td><code>gpuhighmem</code></td>
+<td>GPU nodes with a large amount of RAM</td>
+<td>(boolean)</td>
+</tr>
+<tr>
+<td><code>highmem</code></td>
+<td>Nodes with a large amount of RAM</td>
+<td>(boolean)</td>
+</tr>
+<tr>
+<td><code>infiniband</code></td>
+<td>Parallel jobs within an InfiniBand island</td>
+<td>(node type)</td>
+</tr>
+<tr>
+<td><code>node_type</code></td>
+<td>Run on a specific node type</td>
+<td>(node type)</td>
+</tr>
+<tr>
+<td><code>owned</code></td>
+<td>Run on owned / restricted nodes (if eligible)</td>
+<td>(boolean)</td>
+</tr>
+</tbody>
+</table></div></div>
+<h2 id="job-holds">Job holds<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#job-holds" title="Permanent link">¶</a></h2>
+<p>Jobs can be held from running via the use of <code>qhold</code> or <code>qsub</code> with the
+<code>-hold_jid</code> argument. Holding a job means it remains in the queue but will not
+be considered for scheduling until the hold is removed or the requirement is
+met. This allows users and administrators greater control over queued jobs.</p>
+<p>In the event of issues with a job, an administrator may hold the job until the
+issue is resolved. Users are unable to remove these holds but they may still
+delete the job if required.</p>
+<p>Jobs can be held with the following commands:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Hold a job</span>
+qhold<span class="w"> </span>&lt;job_id&gt;
+
+<span class="c1"># Release a job</span>
+qrls<span class="w"> </span>&lt;job_id&gt;
+</code></pre></div>
+<h3 id="queuing-dependent-jobs">Queuing dependent jobs<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#queuing-dependent-jobs" title="Permanent link">¶</a></h3>
+<p>To hold a job until a preceding job has completed <code>-hold_jid</code> can be used.</p>
+<div class="highlight"><pre><span></span><code># Preceding job:
+$ qsub job_one.sh
+$ qstat
+500 0.00000 job_one abc123       qw    09/19/2020 10:11:35 1
+
+# Held job
+$ qsub -hold_jid 500 job_two.sh
+$ qstat
+500 0.00000 job_one abc123       qw    09/19/2020 10:11:35 1
+501 0.00000 job_two abc123       hqw   09/19/2020 10:12:30 1
+</code></pre></div>
+<p>Once the first job completes the second job will be released for scheduling.
+This enables processing steps to be broken down into separate jobs. An example
+where this may be useful is within a pipeline, where a subsequent stage
+requires output from an earlier step, so this ensures a linear progression.</p>
+<h2 id="further-information">Further information<a class="headerlink" href="https://docs.hpc.qmul.ac.uk/using/#further-information" title="Permanent link">¶</a></h2>
+<ul>
+<li>The <a href="https://docs.hpc.qmul.ac.uk/using/manpages">man pages</a> on the cluster systems give information on
+  the queuing system and MPI functions.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer">
+        
+          
+          <a href="https://docs.hpc.qmul.ac.uk/using/citing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Citing Apocrita in publications">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Citing Apocrita in publications
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="https://docs.hpc.qmul.ac.uk/using/jobscriptbuilder/" class="md-footer__link md-footer__link--next" aria-label="Next: Job Script Builder">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Job Script Builder
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"></path></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.footer"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="./hpc_jobs_guidance_files/bundle.c8b220af.min.js"></script>
+      
+    
+  <script id="init-glightbox">document.querySelectorAll('.glightbox').forEach(function(element) {
+    try {
+        var img = element.querySelector('img');
+        if (img && img.src) {
+            element.setAttribute('href', img.src);
+        } else {
+            console.log('No img element with src attribute found');
+        }
+    } catch (error) {
+        console.log('Error:', error);
+    }
+});
+const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script>
+</body></html>

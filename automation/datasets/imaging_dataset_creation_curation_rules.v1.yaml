@@ -1,0 +1,63 @@
+version: 1
+name: imaging_dataset_creation_curation_rules
+scope: any_imaging_dataset
+default_dataset_root: /s/agent_rw/datasets
+
+folder_contract:
+  required_subfolders:
+    - images
+    - lms
+  optional_subfolders:
+    - _source
+    - _logs
+
+file_contract:
+  image_folder: images
+  labelmap_folder: lms
+  filename_policy: same_basename_between_images_and_lms
+  parity_rule: |
+    For each labelmap in lms/, an image with the same basename must exist in
+    images/, and vice versa unless the dataset is explicitly documented as
+    partially unlabeled.
+  allowed_image_ext:
+    - .nii.gz
+    - .nii
+    - .mha
+    - .mhd
+    - .nrrd
+    - .dcm
+  allowed_label_ext:
+    - .nii.gz
+    - .nii
+    - .mha
+    - .mhd
+    - .nrrd
+    - .seg.nrrd
+    - .dcm
+
+curation_requirements:
+  - keep_original_filenames_when_possible
+  - avoid_embedding_label_metadata_in_filenames
+  - preserve_source_files_under_source
+  - write_pairing_report_tsv_to__logs
+
+preflight_required: true
+preflight_sample_size:
+  min: 1
+  max: 3
+preflight_fields:
+  - dataset_name
+  - source_file
+  - planned_image_path
+  - planned_label_path
+  - conversion_needed
+
+integrity_checks:
+  - verify_required_subfolders_exist
+  - verify_basename_parity_images_vs_lms
+  - report_counts_images_labelmaps_paired_unpaired
+  - save_pairing_report_tsv
+
+write_policy:
+  never_overwrite_without_backup: true
+  backup_root: "$CODEX_HOME/agent_file_backups/<timestamp>"

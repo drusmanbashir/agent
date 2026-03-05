@@ -87,3 +87,13 @@ downloads/
 
 # Existing sensitive local note
 sensitive.md
+
+# -----------------------------
+# Repo-local runtime secrets/state
+# -----------------------------
+config/secret_key
+config/telegram_notify.conf
+config/cache/
+config/*.sqlite3
+agent/linkedin_agent/app.db
+.nvimlog

@@ -1,0 +1,11 @@
+gmail:
+  enabled: true
+  oauth_client_json: /home/ub/.config/gmail-agent/oauth_client.json
+  token_json: /s/agent_rw/cache/gmail_token.json
+  output_dir: /s/agent_rw/index
+
+mdt:
+  sheet: /home/ub/code/agent/sample.ods
+  output_json: /s/agent_rw/index/mdt_next_week.json
+  notification_out: /s/agent_rw/index/mdt_friday_notification.txt
+  snooze_file: /s/agent_rw/index/mdt_snooze_until.txt

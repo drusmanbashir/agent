@@ -1,0 +1,55 @@
+i will create sub-agents. gmail_agent already exists. now create a linkedin_agent
+
+agent/
+│
+├── gmail_agent/
+├── linkedin_agent/
+├── shared/
+└── pyproject.toml (workspace-level)
+
+
+Hard constraints:
+- No scraping or browser automation for LinkedIn.
+- No storing or processing patient-identifiable data.
+- Every draft must include: audience tag, claim level (idea/prototype/validated/published), and source references.
+- No auto-posting by default; implement an approval queue.
+
+Deliverables:
+1) Python project (FastAPI + SQLite + scheduler) with folders:
+   sources/experiments, sources/notes, sources/feeds, drafts/, app/, publishers/
+2) Ingestion: scan experiments JSON+PNGs and notes MD; poll RSS feeds from config/feeds.yaml.
+3) Filtering: keyword + semantic scoring against a DocSmart relevance profile.
+4) Draft generation: LinkedIn short/long + X version derived from LinkedIn.
+5) Approval UI: list/view/edit/approve/reject drafts.
+6) Publishing:
+   - LinkedIn: implement Posts API publisher if credentials/scopes are present; else export copy/paste packs.
+   - X: implement posting module behind a config flag.
+7) Logging/audit: log all ingestions, generations, approvals, publish attempts.
+8) Provide a README with local run instructions and dry-run mode.
+Implement incrementally with runnable checkpoints and tests.
+
+
+
+Poss type:
+
+you are not “an AI startup”.
+
+you are:
+
+• consultant radiologist
+• PI
+• building validated clinical AI
+• operating inside NHS governance
+• targeting measurable workflow + outcome impact
+
+every post must reinforce at least one of:
+
+clinical credibility
+
+technical depth
+
+regulatory awareness
+
+execution velocity
+
+traction / validation

@@ -1,0 +1,24 @@
+div.form_field span {
+  margin-left: 5px;
+  margin-right: 3px;
+}
+
+div.form_field input[type=checkbox] {
+  border-style: none !important;
+  box-shadow: none !important;
+  height:25px !important;
+}
+
+pre {
+  padding: 10px;
+}
+
+div.form_field select {
+  height: 42px;
+}
+
+div#divHighmem {
+  font-size:14px;
+  color:red;
+  padding:10px 0;
+}

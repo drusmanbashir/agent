@@ -1,0 +1,4 @@
+# Copy this file to telegram_notify.conf and fill secrets.
+TELEGRAM_BOT_TOKEN=""
+TELEGRAM_CHAT_ID=""
+TELEGRAM_SENDER="agent"

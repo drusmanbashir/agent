@@ -1,0 +1,11 @@
+[tool.uv.workspace]
+members = [
+  "gmail_agent",
+  "linkedin_agent",
+  "dicom_xnat_agent",
+  "hpc_agent"
+]
+
+[tool.superrepo]
+name = "agent"
+description = "Super-repo containing branch agents for DocSmart workflows"

@@ -1,0 +1,21 @@
+[tool.uv.workspace]
+members = [
+  "agent/gmail_agent",
+  "agent/linkedin_agent",
+  "agent/dicom_xnat_agent",
+  "agent/hpc_agent"
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-workspace"
+version = "0.0.0"
+description = "Agent workspace"
+requires-python = ">=3.9"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent*"]

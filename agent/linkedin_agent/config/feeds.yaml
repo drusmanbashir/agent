@@ -1,0 +1,4 @@
+feeds:
+  - name: example-health-tech
+    url: https://example.com/rss.xml
+    enabled: false

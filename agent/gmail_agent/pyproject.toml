@@ -1,0 +1,22 @@
+[project]
+name = "gmail-agent"
+version = "0.0.1"
+requires-python = ">=3.9"
+dependencies = [
+  "pyyaml",
+  "python-docx",
+  "google-api-python-client",
+  "google-auth",
+  "google-auth-oauthlib",
+  "tqdm"
+]
+
+[project.scripts]
+gmail-agent = "agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agent"]

@@ -1,0 +1,31 @@
+version: 1
+id: xnat_matching_rules_v1
+scope:
+  applies_to:
+    - nifti
+    - nrrd
+  note: Extend applies_to as needed; this rule is mandatory whenever matching subject IDs.
+
+rules:
+  - id: subject_id_matching_from_filename
+    enabled: true
+    priority: 1
+    when:
+      any_of:
+        - file_to_file_subject_matching
+        - file_to_xnat_subject_matching
+    action:
+      parser:
+        module_path: ~/code/utilz/utilz/helpers.py
+        function: info_from_filename
+      expected_filename_pattern: project_subjectid[_date][_description]
+      extracted_fields:
+        - project
+        - subject_id
+        - date
+        - description
+    enforcement:
+      on_parser_error: fail
+      on_missing_subject_id: fail
+      on_mismatch: fail
+      message: Subject matching must be based on info_from_filename output only.

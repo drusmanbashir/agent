@@ -1,0 +1,15 @@
+[project]
+name = "dicom-xnat-agent"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+dicom-xnat-agent = "dicom_xnat_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["dicom_xnat_agent"]

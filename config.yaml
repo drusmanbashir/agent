@@ -1,0 +1,18 @@
+paths:
+  source_root: /s/insync/work/revalidation/source
+  agent_root: /s/insync/work/revalidation/agent_rw
+
+llm:
+  provider: openai   # openai|claude
+  model: ""          # optional
+revalidation:
+  year: 2025
+  form_html: /s/insync/work/revalidation/source/forms/barts_revalidation.html
+  evidence_root: /s/insync/work/revalidation/source/evidence
+  output_dir: /s/insync/work/revalidation/agent_rw/output
+  guidelines_dir: /s/insync/work/revalidation/source/guidelines
+
+gmail:
+  enabled: true
+  oauth_client_json: /home/ub/.config/email-agent/oauth_client.json
+  token_json: /s/insync/work/revalidation/agent_rw/cache/gmail_token.json
