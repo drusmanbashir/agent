@@ -203,6 +203,31 @@ In the MDT card, use **Open MDT Spreadsheet** to open:
 - `https://docs.google.com/spreadsheets/d/<spreadsheet_id>/edit`
 - `spreadsheet_id` comes from `mdt.spreadsheet_id` in `agent/gmail_agent/config.yaml` or `GMAIL_SPREADSHEET_ID` in shared secrets.
 
+### Agent Hub Service (Linux + macOS)
+Use the same script on both OSes:
+
+```bash
+./scripts/agent-hub-service.sh install
+```
+
+This installs and starts:
+- Linux: `systemd --user` service `agent-hub.service`
+- macOS: `launchd` agent `com.drusman.agent-hub`
+
+Update from GitHub and restart service:
+
+```bash
+./scripts/agent-hub-service.sh update-restart
+```
+
+Other commands:
+
+```bash
+./scripts/agent-hub-service.sh status
+./scripts/agent-hub-service.sh restart
+./scripts/agent-hub-service.sh stop
+```
+
 ## Testing
 LinkedIn tests:
 ```bash
