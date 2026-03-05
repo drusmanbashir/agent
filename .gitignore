@@ -95,5 +95,6 @@ config/secret_key
 config/telegram_notify.conf
 config/cache/
 config/*.sqlite3
+config/secure_files.manifest.tsv
 agent/linkedin_agent/app.db
 .nvimlog

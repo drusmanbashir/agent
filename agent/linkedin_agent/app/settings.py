@@ -29,9 +29,11 @@ def _bool_env(name: str, default: bool) -> bool:
 
 def load_settings(base_dir: Path | None = None) -> Settings:
     root = (base_dir or Path(__file__).resolve().parents[1]).resolve()
+    default_db = Path("/s/agent_rw/state/agent_repo/linkedin/app.db")
+    db_path = Path(os.getenv("LINKEDIN_DB_PATH", str(default_db)))
     return Settings(
         base_dir=root,
-        db_path=root / "app.db",
+        db_path=db_path,
         feeds_config=root / "config" / "feeds.yaml",
         sources_experiments=root / "sources" / "experiments",
         sources_notes=root / "sources" / "notes",

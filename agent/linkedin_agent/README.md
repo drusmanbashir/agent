@@ -62,6 +62,7 @@ Environment vars for optional publishing:
 - `LINKEDIN_AUTHOR_URN` (example: `urn:li:person:...`)
 - `LINKEDIN_SCOPES` (must include `w_member_social`)
 - `X_BEARER_TOKEN` (used only when `x_enabled=true`)
+- `LINKEDIN_DB_PATH` (optional; defaults to `/s/agent_rw/state/agent_repo/linkedin/app.db`)
 
 These can be sourced from the shared secrets file:
 - `/s/agent_rw/conf/agent_repo/secrets.env`

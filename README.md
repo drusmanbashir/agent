@@ -254,3 +254,19 @@ scripts/run_with_telegram_notify.sh python agent_menu.py
 ```
 
 This sends Telegram messages on start and completion (or failure), and rings a terminal bell.
+
+## Secure Risky Files Source
+
+For risky local files (keys, local config, runtime DB/state), use one external secure location and sync/link into the repo workspace only when needed.
+
+- secure root: `/s/agent_rw/conf/agent_repo` and `/s/agent_rw/state/agent_repo`
+- manifest template in repo: `config/secure_files.manifest.tsv.example`
+- runtime manifest path (default): `/s/agent_rw/conf/agent_repo/secure_files.manifest.tsv`
+- sync tool: `scripts/sync_secure_files.sh`
+
+Example:
+```bash
+cp /home/ub/code/agent/config/secure_files.manifest.tsv.example \
+  /s/agent_rw/conf/agent_repo/secure_files.manifest.tsv
+/home/ub/code/agent/scripts/sync_secure_files.sh
+```

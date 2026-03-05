@@ -1,0 +1,6 @@
+# local_path	secure_source_path	mode
+config/secret_key	/s/agent_rw/conf/agent_repo/secret_key	copy
+config/hypercorn.toml	/s/agent_rw/conf/agent_repo/hypercorn.toml	copy
+config/telegram_notify.conf	/s/agent_rw/conf/agent_repo/telegram_notify.conf	copy
+config/codex.sqlite3	/s/agent_rw/state/agent_repo/codex.sqlite3	link
+agent/linkedin_agent/app.db	/s/agent_rw/state/agent_repo/linkedin/app.db	link
