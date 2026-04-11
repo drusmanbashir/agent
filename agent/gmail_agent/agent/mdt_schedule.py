@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.parse
+import urllib.request
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
+
+from agent.gmail_briefing import _load_creds
+from googleapiclient.discovery import build
 
 
 NS = {
@@ -37,6 +42,11 @@ WEEKDAY_OFFSET = {
     "wednesday": 2,
 }
 
+MDT_EXPORT_SCOPES = [
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
+]
+
 
 @dataclass(frozen=True)
 class MdtMeeting:
@@ -45,6 +55,7 @@ class MdtMeeting:
     weekday: str
     assignment: str
     month_label: str
+    source_row: int
 
 
 def _cell_text(cell: ET.Element) -> str:
@@ -75,6 +86,71 @@ def _load_sheet_grid(ods_path: Path) -> list[list[str]]:
         for _ in range(row_repeat):
             grid.append(list(expanded))
     return grid
+
+
+def refresh_mdt_sheet_from_google(
+    sheet_path: Path,
+    spreadsheet_id: str,
+    oauth_client_json: Path,
+    token_json: Path,
+) -> Path:
+    creds = _load_creds(
+        oauth_client_json=oauth_client_json,
+        token_json=token_json,
+        scopes=MDT_EXPORT_SCOPES,
+    )
+    req = urllib.request.Request(
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=ods",
+        headers={"Authorization": f"Bearer {creds.token}"},
+    )
+    with urllib.request.urlopen(req) as response:
+        payload = response.read()
+    sheet_path.parent.mkdir(parents=True, exist_ok=True)
+    sheet_path.write_bytes(payload)
+    return sheet_path
+
+
+def _live_sheet_gid(
+    spreadsheet_id: str,
+    oauth_client_json: Path,
+    token_json: Path,
+) -> int:
+    creds = _load_creds(
+        oauth_client_json=oauth_client_json,
+        token_json=token_json,
+        scopes=MDT_EXPORT_SCOPES,
+    )
+    svc = build("sheets", "v4", credentials=creds, cache_discovery=False)
+    res = svc.spreadsheets().get(
+        spreadsheetId=spreadsheet_id,
+        fields="sheets(properties(sheetId))",
+    ).execute()
+    return int(res["sheets"][0]["properties"]["sheetId"])
+
+
+def build_mdt_sheet_view_urls(
+    meetings: list[MdtMeeting],
+    spreadsheet_id: str,
+    oauth_client_json: Path,
+    token_json: Path,
+) -> list[str]:
+    if not meetings:
+        return []
+    gid = _live_sheet_gid(
+        spreadsheet_id=spreadsheet_id,
+        oauth_client_json=oauth_client_json,
+        token_json=token_json,
+    )
+    urls: list[str] = []
+    for meeting in meetings:
+        frag = urllib.parse.urlencode(
+            {
+                "gid": gid,
+                "range": f"A{meeting.source_row}:ZZ{meeting.source_row}",
+            }
+        )
+        urls.append(f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#{frag}")
+    return urls
 
 
 def _contains_initials(value: str, initials: str) -> bool:
@@ -148,7 +224,7 @@ def extract_mdt_meetings_for_week(
     # interpreted in the current calendar year.
     current_year = today.year
 
-    for row in grid[header_row_idx + 2 :]:
+    for row_idx, row in enumerate(grid[header_row_idx + 2 :], start=header_row_idx + 3):
         if not row:
             continue
         first_col = row[0].strip() if len(row) > 0 else ""
@@ -189,6 +265,7 @@ def extract_mdt_meetings_for_week(
                         weekday=weekday_label.capitalize(),
                         assignment=assignment,
                         month_label=current_month_label,
+                        source_row=row_idx,
                     ),
                 )
             )

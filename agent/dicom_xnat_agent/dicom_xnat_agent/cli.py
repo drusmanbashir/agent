@@ -2,14 +2,24 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
-from .workflow import (
-    download_project_nifti_resources,
-    prepare_for_xnat,
-    project_dicom_to_nifti,
-    upload_project_resources_by_filename,
-)
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from workflow import (
+        download_project_nifti_resources,
+        prepare_for_xnat,
+        project_dicom_to_nifti,
+        upload_project_resources_by_filename,
+    )
+else:
+    from .workflow import (
+        download_project_nifti_resources,
+        prepare_for_xnat,
+        project_dicom_to_nifti,
+        upload_project_resources_by_filename,
+    )
 
 
 def _menu_prompt(title: str, options: list[str]) -> int:

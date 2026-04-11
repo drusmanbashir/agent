@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AGENTS_FILE="${CODX_AGENTS_FILE:-/home/ub/code/agent/AGENTS.md}"
+CODEX_BIN="${CODX_BIN:-codex}"
+
+if [[ ! -f "$AGENTS_FILE" ]]; then
+  echo "codx: AGENTS.md not found at $AGENTS_FILE" >&2
+  exit 1
+fi
+
+exec_mode=0
+if [[ "${1:-}" == "--exec" ]]; then
+  exec_mode=1
+  shift
+fi
+
+# Usage:
+#   codx "your prompt"
+#   codx --exec "your prompt"
+#   codx [codex options...] -- "your prompt"
+#   codx --exec [codex options...] -- "your prompt"
+seen_delim=0
+codex_args=()
+prompt_parts=()
+for arg in "$@"; do
+  if [[ "$arg" == "--" && $seen_delim -eq 0 ]]; then
+    seen_delim=1
+    continue
+  fi
+  if [[ $seen_delim -eq 0 ]]; then
+    codex_args+=("$arg")
+  else
+    prompt_parts+=("$arg")
+  fi
+done
+
+# If no delimiter was used, treat all args as prompt text.
+if [[ $seen_delim -eq 0 ]]; then
+  prompt_parts=("${codex_args[@]}")
+  codex_args=()
+fi
+
+user_prompt="${prompt_parts[*]:-Follow AGENTS.md strictly for this session.}"
+agents_text="$(cat "$AGENTS_FILE")"
+
+combined_prompt="$(cat <<EOP
+Mandatory startup instructions for this session come from $AGENTS_FILE.
+Read and apply them before any task work.
+
+<AGENTS_MD>
+$agents_text
+</AGENTS_MD>
+
+User request:
+$user_prompt
+EOP
+)"
+
+if [[ $exec_mode -eq 1 ]]; then
+  exec "$CODEX_BIN" exec "${codex_args[@]}" "$combined_prompt"
+else
+  exec "$CODEX_BIN" "${codex_args[@]}" "$combined_prompt"
+fi

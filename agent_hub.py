@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import sys
+import threading
 from datetime import date
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,8 +30,10 @@ if str(LINKEDIN_ROOT) not in sys.path:
 from agent.gmail_briefing import run_gmail_briefing  # type: ignore  # noqa: E402
 from agent.mdt_schedule import (  # type: ignore  # noqa: E402
     build_friday_notification,
+    build_mdt_sheet_view_urls,
     extract_mdt_meetings_for_week,
     extract_next_week_mdt_meetings,
+    refresh_mdt_sheet_from_google,
     write_mdt_output,
 )
 from agent.secret_store import load_shared_secrets  # type: ignore  # noqa: E402
@@ -53,6 +56,16 @@ UTILZ_DEFAULT_KEYS = (
     "window",
     "rotate_cw",
 )
+
+
+def _default_oauth_client_json() -> str:
+    shared = SHARED_SECRETS.get("GMAIL_OAUTH_CLIENT_JSON")
+    if shared and Path(shared).exists():
+        return shared
+    email_agent = "/home/ub/.config/email-agent/oauth_client.json"
+    if Path(email_agent).exists():
+        return email_agent
+    return "/home/ub/.config/gmail-agent/oauth_client.json"
 
 
 def _startup_stamp_path() -> Path:
@@ -88,7 +101,7 @@ def _load_gmail_cfg() -> dict[str, Any]:
     gm = dict(raw.get("gmail", {}) or {})
     mdt = dict(raw.get("mdt", {}) or {})
 
-    gm.setdefault("oauth_client_json", SHARED_SECRETS.get("GMAIL_OAUTH_CLIENT_JSON", "/home/ub/.config/gmail-agent/oauth_client.json"))
+    gm.setdefault("oauth_client_json", _default_oauth_client_json())
     gm.setdefault("token_json", SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json"))
     gm.setdefault("output_dir", SHARED_SECRETS.get("GMAIL_OUTPUT_DIR", "/s/agent_rw/index"))
     mdt.setdefault("spreadsheet_id", SHARED_SECRETS.get("GMAIL_SPREADSHEET_ID", DEFAULT_SPREADSHEET_ID))
@@ -101,11 +114,21 @@ def _load_gmail_cfg() -> dict[str, Any]:
 def _send_mdt_desktop_notification(
     *,
     sheet_path: Path,
+    spreadsheet_id: str,
+    oauth_client_json: Path,
+    token_json: Path,
     initials: str = "UB",
     week: str = "current",
+    open_sheet_view: bool = False,
     run_today: date | None = None,
 ) -> str:
     today = run_today or date.today()
+    refresh_mdt_sheet_from_google(
+        sheet_path=sheet_path,
+        spreadsheet_id=spreadsheet_id,
+        oauth_client_json=oauth_client_json,
+        token_json=token_json,
+    )
     meetings = extract_mdt_meetings_for_week(
         ods_path=sheet_path,
         initials=initials,
@@ -119,6 +142,16 @@ def _send_mdt_desktop_notification(
     if not shutil.which("notify-send"):
         raise RuntimeError("notify-send not found")
     subprocess.run(["notify-send", "MDT Schedule", body], check=False)
+    if open_sheet_view:
+        urls = build_mdt_sheet_view_urls(
+            meetings=meetings,
+            spreadsheet_id=spreadsheet_id,
+            oauth_client_json=oauth_client_json,
+            token_json=token_json,
+        )
+        if shutil.which("xdg-open"):
+            for url in urls:
+                subprocess.run(["xdg-open", url], check=False)
     return body
 
 
@@ -347,7 +380,7 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
         <label>Spreadsheet ID</label><input name="spreadsheet_id" value="{DEFAULT_SPREADSHEET_ID}" />
         <label>Calendar ID</label><input name="calendar_id" value="primary" />
         <label>Assignee</label><input name="assignee" value="UB" />
-        <label>OAuth Client JSON</label><input name="oauth_client_json" value="{escape(str(gm.get('oauth_client_json', '/home/ub/.config/gmail-agent/oauth_client.json')))}" />
+        <label>OAuth Client JSON</label><input name="oauth_client_json" value="{escape(str(gm.get('oauth_client_json', _default_oauth_client_json())))}" />
         <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/cache/gmail_token.json')))}" />
         <label>Output JSON</label><input name="out_path" value="{escape(str(Path(gm.get('output_dir', '/s/agent_rw/index')) / 'gmail_briefing.json'))}" />
         <button type="submit">Run Gmail Briefing</button>
@@ -359,10 +392,14 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
       <p><a class="btn" href="{escape(mdt_spreadsheet_url)}" target="_blank" rel="noopener noreferrer">Open MDT Spreadsheet</a></p>
       <form method="post" action="/run/mdt-check">
         <label>Sheet (.ods)</label><input name="sheet_path" value="{escape(str(mdt.get('sheet', '/home/ub/code/agent/sample.ods')))}" />
+        <label>Spreadsheet ID</label><input name="spreadsheet_id" value="{escape(str(mdt.get('spreadsheet_id', DEFAULT_SPREADSHEET_ID)))}" />
+        <label>OAuth Client JSON</label><input name="oauth_client_json" value="{escape(str(gm.get('oauth_client_json', _default_oauth_client_json())))}" />
+        <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/cache/gmail_token.json')))}" />
         <label>Initials</label><input name="initials" value="UB" />
         <label>Week</label>
         <select name="week"><option value="current">current</option><option value="next" selected>next</option></select>
         <label>Today (YYYY-MM-DD, optional)</label><input name="today" value="" />
+        <label><input type="checkbox" name="open_sheet_view" /> Open live sheet to matched row(s)</label>
         <label>Output JSON</label><input name="out_path" value="{escape(str(mdt.get('output_json', '/s/agent_rw/index/mdt_next_week.json')))}" />
         <label>Friday Notification File</label><input name="notification_out" value="{escape(str(mdt.get('notification_out', '/s/agent_rw/index/mdt_friday_notification.txt')))}" />
         <button type="submit">Run MDT Check</button>
@@ -583,8 +620,15 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                 run_today = date.fromisoformat(_get(form, "today")) if _get(form, "today") else date.today()
                 initials = _get(form, "initials", "UB")
                 week = _get(form, "week", "next")
+                sheet_path = Path(_get(form, "sheet_path"))
+                refresh_mdt_sheet_from_google(
+                    sheet_path=sheet_path,
+                    spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
+                    oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                )
                 meetings = extract_mdt_meetings_for_week(
-                    ods_path=Path(_get(form, "sheet_path")),
+                    ods_path=sheet_path,
                     initials=initials,
                     week_mode=week,
                     today=run_today,
@@ -593,14 +637,32 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                 write_mdt_output(out_json=out_json, meetings=meetings, initials=initials, today=run_today)
                 lines = [f"MDT wrote: {out_json}"]
                 lines += [f"{m.date_iso} ({m.weekday}) | {m.meeting_name} | {m.assignment}" for m in meetings] or ["No meetings"]
+                if _is_checked(form, "open_sheet_view"):
+                    urls = build_mdt_sheet_view_urls(
+                        meetings=meetings,
+                        spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
+                        oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
+                        token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                    )
+                    if shutil.which("xdg-open"):
+                        for url in urls:
+                            subprocess.run(["xdg-open", url], check=False)
+                    lines += urls
                 self._send_html(_render_page("\n".join(lines)))
                 return
 
             if self.path == "/run/mdt-friday":
                 run_today = date.fromisoformat(_get(form, "today")) if _get(form, "today") else date.today()
                 initials = _get(form, "initials", "UB")
+                sheet_path = Path(_get(form, "sheet_path"))
+                refresh_mdt_sheet_from_google(
+                    sheet_path=sheet_path,
+                    spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
+                    oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                )
                 meetings = extract_next_week_mdt_meetings(
-                    ods_path=Path(_get(form, "sheet_path")),
+                    ods_path=sheet_path,
                     initials=initials,
                     today=run_today,
                 )
@@ -617,8 +679,12 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                 week = _get(form, "week", "current")
                 body = _send_mdt_desktop_notification(
                     sheet_path=Path(_get(form, "sheet_path")),
+                    spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
+                    oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
                     initials=initials,
                     week=week,
+                    open_sheet_view=_is_checked(form, "open_sheet_view"),
                     run_today=run_today,
                 )
                 self._send_html(_render_page("Desktop notification sent:\n" + body))
@@ -824,25 +890,31 @@ def main() -> None:
     cfg = _load_gmail_cfg()
     mdt = cfg.get("mdt", {})
     today = date.today()
-    try:
-        if _already_sent_today(today):
-            print(f"Startup MDT notification skipped: already sent for {today.isoformat()}")
-        else:
+    host = "127.0.0.1"
+    port = 8090
+    server = ThreadingHTTPServer((host, port), AgentHubHandler)
+    print(f"Agent Hub running at http://{host}:{port}")
+
+    def _startup_notify() -> None:
+        try:
+            if _already_sent_today(today):
+                print(f"Startup MDT notification skipped: already sent for {today.isoformat()}")
+                return
             startup_body = _send_mdt_desktop_notification(
                 sheet_path=Path(mdt.get("sheet", "/home/ub/code/agent/sample.ods")),
+                spreadsheet_id=str(mdt.get("spreadsheet_id", DEFAULT_SPREADSHEET_ID)),
+                oauth_client_json=Path(cfg.get("gmail", {}).get("oauth_client_json", _default_oauth_client_json())),
+                token_json=Path(cfg.get("gmail", {}).get("token_json", "/s/agent_rw/cache/gmail_token.json")),
                 initials="UB",
                 week="current",
             )
             _mark_startup_sent(today)
             print("Startup MDT notification sent:")
             print(startup_body)
-    except Exception as exc:
-        print(f"Startup MDT notification skipped: {exc}")
+        except Exception as exc:
+            print(f"Startup MDT notification skipped: {exc}")
 
-    host = "127.0.0.1"
-    port = 8090
-    server = ThreadingHTTPServer((host, port), AgentHubHandler)
-    print(f"Agent Hub running at http://{host}:{port}")
+    threading.Thread(target=_startup_notify, daemon=True).start()
     server.serve_forever()
 
 

@@ -16,8 +16,10 @@ from agent.gmail_briefing import run_gmail_briefing
 from agent.secret_store import load_shared_secrets
 from agent.mdt_schedule import (
     build_friday_notification,
+    build_mdt_sheet_view_urls,
     extract_mdt_meetings_for_week,
     extract_next_week_mdt_meetings,
+    refresh_mdt_sheet_from_google,
     write_mdt_output,
 )
 from agent.paths import Paths, assert_read_only_source
@@ -250,12 +252,16 @@ def main(argv=None) -> int:
         help="parse MDT ODS sheet and report next week's meetings for an initials code",
     )
     mdt_check.add_argument("--sheet", default="")
+    mdt_check.add_argument("--spreadsheet-id", default="")
+    mdt_check.add_argument("--oauth-client-json", default="")
+    mdt_check.add_argument("--token-json", default="")
     mdt_check.add_argument("--initials", default="UB")
     mdt_check.add_argument("--today", default="")
     mdt_check.add_argument("--week", choices=["current", "next"], default="next")
     mdt_check.add_argument("--out", default="")
     mdt_check.add_argument("--notify-friday", action="store_true")
     mdt_check.add_argument("--desktop-notify", action="store_true")
+    mdt_check.add_argument("--open-sheet-view", action="store_true")
     mdt_check.add_argument("--respect-snooze", action="store_true")
     mdt_check.add_argument("--snooze-file", default="")
     mdt_check.add_argument("--notification-out", default="")
@@ -364,19 +370,36 @@ def main(argv=None) -> int:
                 raw = yaml.safe_load(f) or {}
         else:
             raw = {}
+        gm = raw.get("gmail", {})
         mdt_cfg = raw.get("mdt", {})
 
         default_sheet = Path("/home/ub/code/agent/sample.ods")
         default_out = Path("/s/agent_rw/index/mdt_next_week.json")
         default_notification = Path("/s/agent_rw/index/mdt_friday_notification.txt")
         default_snooze = Path("/s/agent_rw/index/mdt_snooze_until.txt")
+        default_oauth = Path(
+            os.getenv("GMAIL_OAUTH_CLIENT_JSON", str(Path.home() / ".config" / "gmail-agent" / "oauth_client.json"))
+        )
+        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json"))
 
         sheet_path = Path(args.sheet or mdt_cfg.get("sheet", default_sheet))
+        spreadsheet_id = args.spreadsheet_id or mdt_cfg.get(
+            "spreadsheet_id",
+            os.getenv("GMAIL_SPREADSHEET_ID", "1BF6awvgWG4PZdugdB3u1P_1e6w3slXQNBqAk9jM4U5Y"),
+        )
+        oauth_client_json = Path(args.oauth_client_json or gm.get("oauth_client_json", default_oauth))
+        token_json = Path(args.token_json or gm.get("token_json", default_token))
         out_path = Path(args.out or mdt_cfg.get("output_json", default_out))
         notification_path = Path(
             args.notification_out or mdt_cfg.get("notification_out", default_notification)
         )
         snooze_path = Path(args.snooze_file or mdt_cfg.get("snooze_file", default_snooze))
+        refresh_mdt_sheet_from_google(
+            sheet_path=sheet_path,
+            spreadsheet_id=spreadsheet_id,
+            oauth_client_json=oauth_client_json,
+            token_json=token_json,
+        )
 
         run_today = date.fromisoformat(args.today) if args.today else date.today()
         meetings = extract_mdt_meetings_for_week(
@@ -413,6 +436,22 @@ def main(argv=None) -> int:
                 print("sent desktop notification")
             else:
                 print("notify-send not found; skipped desktop notification")
+        if args.open_sheet_view:
+            urls = build_mdt_sheet_view_urls(
+                meetings=meetings,
+                spreadsheet_id=spreadsheet_id,
+                oauth_client_json=oauth_client_json,
+                token_json=token_json,
+            )
+            if urls and shutil.which("xdg-open"):
+                for url in urls:
+                    subprocess.run(["xdg-open", url], check=False)
+                print("opened live sheet view")
+            elif urls:
+                for url in urls:
+                    print(url)
+            else:
+                print("no matching rows to open in Google Sheets")
 
         if args.notify_friday:
             if run_today.weekday() == 4:
