@@ -171,6 +171,37 @@ def _dataset_remote_path(remote_root: str, remote_subdir: str) -> str:
     return f"{remote_root.rstrip('/')}/{remote_subdir.strip('/')}"
 
 
+def _is_safe_rel_sync_path(rel_path: str) -> bool:
+    if not rel_path.startswith(SYNC_PREFIXES):
+        return False
+    pure = Path(rel_path)
+    if pure.is_absolute():
+        return False
+    if any(part in {"", ".", ".."} for part in pure.parts):
+        return False
+    return True
+
+
+def _validate_remote_abs_path(path: str) -> bool:
+    if not path.startswith("/"):
+        return False
+    if any(c in path for c in ("\n", "\r", "\x00")):
+        return False
+    norm = posixpath.normpath(path)
+    return norm == path and norm != "/"
+
+
+def _to_remote_abs_paths(remote_dataset_path: str, rel_paths: list[str]) -> list[str]:
+    base = remote_dataset_path.rstrip("/")
+    return [f"{base}/{rel_path}" for rel_path in rel_paths]
+
+
+def _print_preflight_list(label: str, paths: list[str]) -> None:
+    print(f"{label} ({len(paths)}):")
+    for path in paths:
+        print(f"  {path}")
+
+
 def _remote_dir_exists(remote: str, remote_path: str, verbose: bool = True) -> bool:
     cmd = _remote_shell_cmd(remote, f"test -d {shlex.quote(remote_path)}")
     if verbose:
@@ -274,8 +305,11 @@ def _upload_selected_files(
                 tmp.write(f"{rel_path}\n")
             tmp_path = tmp.name
         remote_dataset_path = _dataset_remote_path(remote_root, remote_subdir)
+        rsync_wrapper = _repo_root() / "scripts" / "hpc_rsync.sh"
+        if not rsync_wrapper.exists():
+            raise ConfigError(f"Missing rsync wrapper: {rsync_wrapper}")
         cmd = [
-            "rsync",
+            str(rsync_wrapper),
             "-avz",
             "--partial",
             "--files-from",
@@ -292,7 +326,27 @@ def _upload_selected_files(
                 pass
 
 
-def update_dataset(dataset_names: list[str], remote: str | None, yes: bool, config_path: Path | None) -> int:
+def _delete_files_on_remote_with_login(filenames: list[str], remote_login: str) -> int:
+    if not filenames:
+        print("No remote files selected for deletion.")
+        return 0
+    bad = [path for path in filenames if not _validate_remote_abs_path(path)]
+    if bad:
+        raise ConfigError(f"Refusing to delete invalid remote paths: {', '.join(bad)}")
+    quoted = " ".join(shlex.quote(path) for path in filenames)
+    remote_cmd = f"set -euo pipefail; rm -f -- {quoted}"
+    cmd = _remote_shell_cmd(remote_login, remote_cmd)
+    return _run_command(cmd)
+
+
+def delete_files_on_remote(filenames: list[str]) -> int:
+    config = _load_hpc_config(None)
+    return _delete_files_on_remote_with_login(filenames=filenames, remote_login=config["login"])
+
+
+def update_dataset(
+    dataset_names: list[str], remote: str | None, yes: bool, config_path: Path | None, dry_run: bool = False
+) -> int:
     if not dataset_names:
         raise ConfigError("At least one dataset name is required.")
     config = _load_hpc_config(config_path)
@@ -325,27 +379,50 @@ def update_dataset(dataset_names: list[str], remote: str | None, yes: bool, conf
 
         local_files = _list_local_dataset_files(local_folder)
         remote_files = _list_remote_dataset_files(remote_login, remote_dataset_path)
-        selected = sorted(
+        selected_upload = sorted(
             rel_path
             for rel_path, local_times in local_files.items()
             if rel_path not in remote_files or local_times["mtime"] > remote_files[rel_path]["mtime"]
         )
-        print(f"Selected {len(selected)} / {len(local_files)} local files for delta upload.")
+        selected_delete_rel = sorted(rel_path for rel_path in (set(remote_files) - set(local_files)))
+        bad_delete = [rel_path for rel_path in selected_delete_rel if not _is_safe_rel_sync_path(rel_path)]
+        if bad_delete:
+            raise ConfigError(f"Refusing delete outside images/lms safe paths: {', '.join(bad_delete)}")
+        selected_delete_abs = _to_remote_abs_paths(remote_dataset_path, selected_delete_rel)
+
+        _print_preflight_list("Upload list", selected_upload)
+        _print_preflight_list("Delete list", selected_delete_abs)
+
+        if dry_run:
+            print("Dry-run enabled: no upload/delete executed.")
+            continue
+
+        print(f"Selected {len(selected_upload)} / {len(local_files)} local files for delta upload.")
         rc = _upload_selected_files(
             remote=remote_login,
             local_folder=local_folder,
             remote_root=remote_root,
             remote_subdir=remote_subdir,
-            selected_rel_paths=selected,
+            selected_rel_paths=selected_upload,
             yes=yes,
         )
         if rc != 0:
             return rc
+
+        if selected_delete_abs:
+            if not yes:
+                print("Delete candidates exist but --yes not set. Refusing remote delete; use --dry-run or --yes.")
+                return 2
+            rc = _delete_files_on_remote_with_login(filenames=selected_delete_abs, remote_login=remote_login)
+            if rc != 0:
+                return rc
     return 0
 
 
-def run_dataset_update(dataset_names: list[str], remote: str | None, yes: bool, config_path: Path | None) -> int:
-    return update_dataset(dataset_names=dataset_names, remote=remote, yes=yes, config_path=config_path)
+def run_dataset_update(
+    dataset_names: list[str], remote: str | None, yes: bool, config_path: Path | None, dry_run: bool = False
+) -> int:
+    return update_dataset(dataset_names=dataset_names, remote=remote, yes=yes, config_path=config_path, dry_run=dry_run)
 
 
 def _count_files_by_subdir(files: dict[str, FileTimes]) -> tuple[int, int]:
@@ -478,6 +555,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--config", type=Path, default=None, help="Path to hpc.yaml (default: $FRAN_CONF/hpc.yaml).")
     p.add_argument("--yes", action="store_true", help="Skip confirmation prompt.")
+    p.add_argument("--dry-run", action="store_true", help="For update_dataset: show upload/delete plan only.")
     return p
 
 
@@ -496,6 +574,7 @@ def main(argv: list[str] | None = None) -> int:
                 remote=args.remote,
                 yes=args.yes,
                 config_path=args.config,
+                dry_run=args.dry_run,
             )
         return run_dataset_upload(
             dataset_names=args.dataset_names,
