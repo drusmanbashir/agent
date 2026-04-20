@@ -1,21 +1,42 @@
 #!/bin/bash
-#SBATCH -J proj_create
+#SBATCH -J fran_preproc
 #SBATCH -D /data/EECS-LITQ/fran_storage/logs
-#SBATCH -n 16
-#SBATCH -t 3:00:00
-#SBATCH --mem-per-cpu=8G
+#SBATCH -p andrena
+#SBATCH -A pilot_andrena
+#SBATCH -n 12
+#SBATCH -t 5:00:00
+#SBATCH --mem-per-cpu=7500M
 #SBATCH -o /data/EECS-LITQ/fran_storage/logs/%x-%j.out
 #SBATCH -e /data/EECS-LITQ/fran_storage/logs/%x-%j.err
 
+set -euo pipefail
+
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"
+export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
+
+if ! command -v module >/dev/null 2>&1; then
+  [[ -r /etc/profile.d/modules.sh ]] && source /etc/profile.d/modules.sh
+fi
+
 module load miniforge
-source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate dl
 
+echo "host=$(hostname)"
+echo "job_id=${SLURM_JOB_ID:-}"
+echo "partition=${SLURM_JOB_PARTITION:-}"
+echo "ntasks=${SLURM_NTASKS:-}"
+echo "python=$(command -v python)"
+python - <<'PY'
+import fran
+print(f"fran={fran.__file__}")
+PY
+
 project_title="${PROJECT_TITLE:-kits}"
-mnemonic="${MNEMONIC:-kidneys}"
-num_workers="${NUM_WORKERS:-4}"
+plan="${PLAN:-0}"
+num_workers="${NUM_WORKERS:-${SLURM_NTASKS:-4}}"
 positionals=()
-read -r -a datasources <<< "${DATASOURCES:-kits23}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,17 +44,9 @@ while [[ $# -gt 0 ]]; do
       project_title="$2"
       shift 2
       ;;
-    -m|--mnemonic)
-      mnemonic="$2"
+    -p|--plan|--plan-num)
+      plan="$2"
       shift 2
-      ;;
-    -ds|--datasources)
-      shift
-      datasources=()
-      while [[ $# -gt 0 && "$1" != -* ]]; do
-        datasources+=("$1")
-        shift
-      done
       ;;
     -n|--num-workers)
       num_workers="$2"
@@ -47,14 +60,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ ${#positionals[@]} -ge 1 ]] && project_title="${positionals[0]}"
-[[ ${#positionals[@]} -ge 2 ]] && mnemonic="${positionals[1]}"
-[[ ${#positionals[@]} -ge 3 ]] && datasources=("${positionals[2]}")
-[[ ${#positionals[@]} -ge 4 ]] && num_workers="${positionals[3]}"
+[[ ${#positionals[@]} -ge 2 ]] && plan="${positionals[1]}"
+[[ ${#positionals[@]} -ge 3 ]] && num_workers="${positionals[2]}"
+num_workers="${num_workers:-4}"
 
-python /data/EECS-LITQ/fran_storage/code/fran/fran/run/project_init.py \
+if [[ "${PREPROC_TRACE_ONLY:-0}" == "1" ]]; then
+  echo "PREPROC_TRACE_ONLY=1; skipping analyze_resample"
+  exit 0
+fi
+
+python -u /data/EECS-LITQ/fran_storage/code/fran/fran/run/analyze_resample.py \
   -t "$project_title" \
-  -m "$mnemonic" \
-  --datasources "${datasources[@]}" \
+  -p "$plan" \
   -n "$num_workers"
 
 #python /data/EECS-LITQ/fran_storage/code/fran/fran/run/analyze_resample.py -t kits2 -p 8 -n 4

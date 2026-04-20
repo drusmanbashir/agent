@@ -6,11 +6,25 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+# HPC env defaults. Callers can override any of these before invoking script.
+HPC_LOGIN="${HPC_LOGIN:-}"
+HPC_CONNECT_TIMEOUT="${HPC_CONNECT_TIMEOUT:-8}"
+HPC_STRICT_HOSTKEY="${HPC_STRICT_HOSTKEY:-yes}"
+HPC_SSH_BIN="${HPC_SSH_BIN:-ssh}"
+HPC_SSHPASS_BIN="${HPC_SSHPASS_BIN:-sshpass}"
+HPC_RSYNC_BIN="${HPC_RSYNC_BIN:-rsync}"
+
 SCRIPT_FILE=""
 SCRIPT_ARGS=()
+RSYNC_MODE=0
 
 while [[ $# -gt 0 ]]; do
   case "${1}" in
+    --rsync)
+      RSYNC_MODE=1
+      shift
+      break
+      ;;
     --login)
       HPC_LOGIN="$2"
       export HPC_LOGIN
@@ -30,6 +44,7 @@ while [[ $# -gt 0 ]]; do
 Usage:
   scripts/hpc_ssh.sh [--login user@host] 'remote command'
   scripts/hpc_ssh.sh [--login user@host] --script local_script.sh -- [args...]
+  scripts/hpc_ssh.sh --rsync [rsync args...]
 EOF
       exit 0
       ;;
@@ -40,12 +55,10 @@ EOF
 done
 
 LOGIN="${HPC_LOGIN:-$(python -m tools.cli load_pwd --field login)}"
-CONNECT_TIMEOUT="${HPC_CONNECT_TIMEOUT:-8}"
-STRICT_HOSTKEY="${HPC_STRICT_HOSTKEY:-yes}"
 
 SSH_OPTS=(
-  -o "StrictHostKeyChecking=${STRICT_HOSTKEY}"
-  -o "ConnectTimeout=${CONNECT_TIMEOUT}"
+  -o "StrictHostKeyChecking=${HPC_STRICT_HOSTKEY}"
+  -o "ConnectTimeout=${HPC_CONNECT_TIMEOUT}"
 )
 
 if [[ -n "${SCRIPT_FILE}" ]]; then
@@ -53,29 +66,40 @@ if [[ -n "${SCRIPT_FILE}" ]]; then
     echo "Script file not readable: ${SCRIPT_FILE}" >&2
     exit 2
   fi
-  REMOTE_CMD="bash -s"
+  INNER_CMD="bash -s"
   if [[ ${#SCRIPT_ARGS[@]} -gt 0 ]]; then
-    REMOTE_CMD+=" --"
+    INNER_CMD+=" --"
     for arg in "${SCRIPT_ARGS[@]}"; do
       printf -v quoted "%q" "${arg}"
-      REMOTE_CMD+=" ${quoted}"
+      INNER_CMD+=" ${quoted}"
     done
   fi
+  printf -v quoted_inner "%q" "${INNER_CMD}"
+  REMOTE_CMD="bash -lc ${quoted_inner}"
 fi
 
-if command -v sshpass >/dev/null 2>&1; then
+if command -v "${HPC_SSHPASS_BIN}" >/dev/null 2>&1; then
   if [[ -z "${SSHPASS:-}" ]]; then
     SSHPASS="$(python -m tools.cli load_pwd --field password --show-password)"
     export SSHPASS
   fi
-  if [[ -n "${SCRIPT_FILE}" ]]; then
-    exec sshpass -e ssh "${SSH_OPTS[@]}" "${LOGIN}" "${REMOTE_CMD}" < "${SCRIPT_FILE}"
+  if [[ "${RSYNC_MODE}" == "1" ]]; then
+    RSH="${HPC_SSHPASS_BIN} -e ${HPC_SSH_BIN} -o StrictHostKeyChecking=${HPC_STRICT_HOSTKEY} -o ConnectTimeout=${HPC_CONNECT_TIMEOUT}"
+    exec "${HPC_RSYNC_BIN}" -e "${RSH}" "$@"
   fi
-  exec sshpass -e ssh "${SSH_OPTS[@]}" "${LOGIN}" "$@"
+  if [[ -n "${SCRIPT_FILE}" ]]; then
+    exec "${HPC_SSHPASS_BIN}" -e "${HPC_SSH_BIN}" "${SSH_OPTS[@]}" "${LOGIN}" "${REMOTE_CMD}" < "${SCRIPT_FILE}"
+  fi
+  exec "${HPC_SSHPASS_BIN}" -e "${HPC_SSH_BIN}" "${SSH_OPTS[@]}" "${LOGIN}" "$@"
+fi
+
+if [[ "${RSYNC_MODE}" == "1" ]]; then
+  RSH="${HPC_SSH_BIN} -o StrictHostKeyChecking=${HPC_STRICT_HOSTKEY} -o ConnectTimeout=${HPC_CONNECT_TIMEOUT}"
+  exec "${HPC_RSYNC_BIN}" -e "${RSH}" "$@"
 fi
 
 if [[ -n "${SCRIPT_FILE}" ]]; then
-  exec ssh "${SSH_OPTS[@]}" "${LOGIN}" "${REMOTE_CMD}" < "${SCRIPT_FILE}"
+  exec "${HPC_SSH_BIN}" "${SSH_OPTS[@]}" "${LOGIN}" "${REMOTE_CMD}" < "${SCRIPT_FILE}"
 fi
 
-exec ssh "${SSH_OPTS[@]}" "${LOGIN}" "$@"
+exec "${HPC_SSH_BIN}" "${SSH_OPTS[@]}" "${LOGIN}" "$@"

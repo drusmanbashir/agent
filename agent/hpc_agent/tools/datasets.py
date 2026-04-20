@@ -6,6 +6,7 @@ import posixpath
 import shlex
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +15,23 @@ from tools.cli import ConfigError, _load_hpc_config, _print_config_error, _run_c
 CONFIG_ENV = "FRAN_CONF"
 DATASETS_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "datasets.yaml")
 DATASETS_HPC_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "datasets_hpc.yaml")
+COMMON_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config.yaml")
+COMMON_HPC_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config_hpc.yaml")
 SYNC_SUBDIRS = ("images", "lms")
 SYNC_PREFIXES = tuple(f"{subdir}/" for subdir in SYNC_SUBDIRS)
 
 
 FileTimes = dict[str, int]
+
+
+@dataclass
+class UploadTriageResult:
+    kind: str
+    local_folder: Path
+    remote_path: str
+    selected_rel_paths: list[str]
+    skipped_rel_paths: list[str]
+    rsync_cmd: list[str]
 
 
 def _repo_root() -> Path:
@@ -140,6 +153,371 @@ def _resolve_dataset_upload(
     local_folder = _resolve_local_folder_entry(dataset_name, local_entry)
     remote_root, remote_subdir = _resolve_remote_target_entry(dataset_name, remote_entry)
     return local_folder, remote_root, remote_subdir
+
+
+def _normalize_local_abs(path: str) -> str:
+    return os.path.normpath(path)
+
+
+def _normalize_remote_abs(path: str) -> str:
+    return posixpath.normpath(path)
+
+
+def _is_abs_path_value(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith("/")
+
+
+def _path_has_prefix(path: str, prefix: str) -> bool:
+    return path == prefix or path.startswith(prefix.rstrip("/") + "/")
+
+
+def _rel_from_prefix(path: str, prefix: str) -> str:
+    if path == prefix:
+        return ""
+    return path[len(prefix.rstrip("/") + "/") :]
+
+
+def _normalize_datafolder_type(raw: str) -> str:
+    lowered = raw.strip().lower()
+    remap = {
+        "patch": "pbd",
+        "sourcepbd": "source",
+    }
+    normalized = remap.get(lowered, lowered)
+    allowed = {"kbd", "source", "lbd", "pbd", "whole"}
+    if normalized not in allowed:
+        allowed_txt = ", ".join(sorted(allowed))
+        raise ConfigError(f"Unsupported datafolder type '{raw}'. Allowed: {allowed_txt}")
+    return normalized
+
+
+def _resolve_folder_type_from_plan(plan_train: dict[str, Any], datafolder_type: str | None) -> str:
+    if datafolder_type:
+        return _normalize_datafolder_type(datafolder_type)
+    mode_raw = plan_train.get("mode")
+    if not isinstance(mode_raw, str) or not mode_raw.strip():
+        raise ConfigError("plan_train.mode is missing/invalid; pass --datafolder-type explicitly.")
+    return _normalize_datafolder_type(mode_raw)
+
+
+def _ensure_exact_project_subfolder(project_title: str, common_conf: dict[str, Any]) -> Path:
+    if not project_title or Path(project_title).name != project_title or "/" in project_title:
+        raise ConfigError("--project-title must be a single exact subfolder name under projects_folder.")
+    projects_folder_raw = common_conf.get("projects_folder")
+    if not isinstance(projects_folder_raw, str) or not projects_folder_raw.startswith("/"):
+        raise ConfigError(f"Missing/invalid projects_folder in {COMMON_CONF}")
+    projects_folder = Path(projects_folder_raw).expanduser()
+    expected = projects_folder / project_title
+    if not expected.is_dir():
+        raise ConfigError(
+            f"Project title '{project_title}' is not an exact existing subfolder under {projects_folder}."
+        )
+    return expected
+
+
+def _build_local_to_hpc_prefix_table(
+    common_conf: dict[str, Any], common_hpc_conf: dict[str, Any]
+) -> list[tuple[str, str, str]]:
+    table: list[tuple[str, str, str]] = []
+    for key in sorted(set(common_conf) & set(common_hpc_conf)):
+        local_raw = common_conf.get(key)
+        remote_raw = common_hpc_conf.get(key)
+        if not _is_abs_path_value(local_raw) or not _is_abs_path_value(remote_raw):
+            continue
+        local_norm = _normalize_local_abs(str(local_raw))
+        remote_norm = _normalize_remote_abs(str(remote_raw))
+        table.append((local_norm, remote_norm, key))
+    return table
+
+
+def _map_local_path_to_hpc_path(
+    local_path: Path,
+    common_conf: dict[str, Any],
+    common_hpc_conf: dict[str, Any],
+) -> str:
+    source = _normalize_local_abs(str(local_path.expanduser().resolve()))
+    table = _build_local_to_hpc_prefix_table(common_conf, common_hpc_conf)
+    if not table:
+        raise ConfigError(f"No common absolute path keys found between {COMMON_CONF} and {COMMON_HPC_CONF}.")
+
+    candidates: list[tuple[int, str, str, str]] = []
+    for local_prefix, remote_prefix, key in table:
+        if not _path_has_prefix(source, local_prefix):
+            continue
+        rel = _rel_from_prefix(source, local_prefix)
+        rel_posix = rel.replace(os.sep, "/")
+        remote_path = remote_prefix if not rel_posix else posixpath.join(remote_prefix, rel_posix)
+        candidates.append((len(local_prefix), remote_path, key, local_prefix))
+
+    if not candidates:
+        table_keys = ", ".join(key for _, _, key in table)
+        raise ConfigError(
+            f"Unable to map local path '{source}' to HPC using shared config keys ({table_keys})."
+        )
+
+    best_len = max(item[0] for item in candidates)
+    best = [item for item in candidates if item[0] == best_len]
+    if len(best) > 1:
+        details = ", ".join(f"{key}:{prefix}" for _, _, key, prefix in best)
+        raise ConfigError(
+            f"Ambiguous local->HPC mapping for '{source}' with same-length prefixes: {details}"
+        )
+    return best[0][1]
+
+
+def _resolve_preprocessed_upload(
+    project_title: str,
+    plan: int,
+    datafolder_type: str | None,
+    common_conf: dict[str, Any],
+    common_hpc_conf: dict[str, Any],
+) -> tuple[Path, str]:
+    _ensure_exact_project_subfolder(project_title, common_conf)
+    try:
+        from fran.configs.parser import ConfigMaker
+        from fran.managers import Project
+        from fran.utils.folder_names import FolderNames
+    except Exception as exc:
+        raise ConfigError(f"Failed to import fran project helpers required for preprocessed upload: {exc}") from exc
+
+    P = Project(project_title=project_title)
+    C = ConfigMaker(P)
+    C.setup(plan)
+    plan_train = C.configs["plan_train"]
+    folder_type = _resolve_folder_type_from_plan(plan_train, datafolder_type)
+    folder_key = f"data_folder_{folder_type}"
+    folders = FolderNames(P, C.configs["plan_train"]).folders
+    if folder_key not in folders:
+        raise ConfigError(f"Folder key '{folder_key}' is unavailable in FolderNames(...).folders.")
+    local_folder = Path(folders[folder_key]).expanduser()
+    remote_path = _map_local_path_to_hpc_path(local_folder, common_conf, common_hpc_conf)
+    return local_folder, remote_path
+
+
+def _resolve_upload_triage_target(
+    dataset_name: str | None,
+    project_title: str | None,
+    plan: int | None,
+    datafolder_type: str | None,
+) -> tuple[str, Path, str]:
+    has_dataset = bool(dataset_name)
+    has_preprocessed = bool(project_title) or plan is not None or bool(datafolder_type)
+    if has_dataset and has_preprocessed:
+        raise ConfigError("Choose exactly one upload_triage target: --dataset-name OR --project-title/--plan.")
+    if not has_dataset and not has_preprocessed:
+        raise ConfigError("upload_triage requires either --dataset-name or (--project-title and --plan).")
+
+    if has_dataset:
+        datasets_conf = _dataset_mapping(_load_yaml_mapping(Path(DATASETS_CONF).expanduser()))
+        datasets_hpc_conf = _dataset_mapping(_load_yaml_mapping(Path(DATASETS_HPC_CONF).expanduser()))
+        local_folder, remote_root, remote_subdir = _resolve_dataset_upload(dataset_name or "", datasets_conf, datasets_hpc_conf)
+        return "dataset", local_folder, _dataset_remote_path(remote_root, remote_subdir)
+
+    if not project_title:
+        raise ConfigError("--project-title is required for preprocessed upload_triage.")
+    if plan is None:
+        raise ConfigError("--plan is required for preprocessed upload_triage.")
+    common_conf = _load_yaml_mapping(Path(COMMON_CONF).expanduser())
+    common_hpc_conf = _load_yaml_mapping(Path(COMMON_HPC_CONF).expanduser())
+    local_folder, remote_path = _resolve_preprocessed_upload(
+        project_title=project_title,
+        plan=plan,
+        datafolder_type=datafolder_type,
+        common_conf=common_conf,
+        common_hpc_conf=common_hpc_conf,
+    )
+    return "preprocessed", local_folder, remote_path
+
+
+def _is_safe_rel_path(rel_path: str) -> bool:
+    pure = Path(rel_path)
+    if pure.is_absolute():
+        return False
+    if not pure.parts:
+        return False
+    if any(part in {"", ".", ".."} for part in pure.parts):
+        return False
+    return True
+
+
+def _list_local_files_recursive(local_folder: Path) -> list[str]:
+    rel_paths: list[str] = []
+    for file_path in local_folder.rglob("*"):
+        if not file_path.is_file():
+            continue
+        rel_path = file_path.relative_to(local_folder).as_posix()
+        if _is_safe_rel_path(rel_path):
+            rel_paths.append(rel_path)
+    return sorted(rel_paths)
+
+
+def _list_remote_files_recursive(remote: str, remote_folder: str, verbose: bool = True) -> list[str]:
+    remote_cmd = (
+        f"base={shlex.quote(remote_folder)}; "
+        'if [ -d "$base" ]; then find "$base" -type f -exec stat -c \'%n\' {} +; fi'
+    )
+    cmd = _remote_shell_cmd(remote, remote_cmd)
+    if verbose:
+        print("Command:")
+        print(f"  {shlex.join(cmd)}")
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        stderr = proc.stderr.strip() if proc.stderr else ""
+        raise ConfigError(f"Failed to list remote files under {remote_folder}. {stderr}".strip())
+
+    remote_files: list[str] = []
+    prefix = f"{remote_folder.rstrip('/')}/"
+    for line in proc.stdout.splitlines():
+        abs_path = line.strip()
+        if not abs_path or not abs_path.startswith(prefix):
+            continue
+        rel_path = abs_path[len(prefix) :]
+        if _is_safe_rel_path(rel_path):
+            remote_files.append(rel_path)
+    return sorted(remote_files)
+
+
+def _build_rsync_files_from_cmd(remote: str, local_folder: Path, remote_path: str, files_from_path: str) -> list[str]:
+    rsync_wrapper = _repo_root() / "scripts" / "hpc_rsync.sh"
+    if not rsync_wrapper.exists():
+        raise ConfigError(f"Missing rsync wrapper: {rsync_wrapper}")
+    return [
+        str(rsync_wrapper),
+        "-avz",
+        "--partial",
+        "--files-from",
+        files_from_path,
+        f"{local_folder.resolve()}/",
+        f"{remote}:{remote_path.rstrip('/')}/",
+    ]
+
+
+def _select_upload_rel_paths(local_rel_paths: list[str], remote_rel_paths: list[str], overwrite: bool) -> tuple[list[str], list[str]]:
+    if overwrite:
+        return list(local_rel_paths), []
+    remote_set = set(remote_rel_paths)
+    selected = [rel_path for rel_path in local_rel_paths if rel_path not in remote_set]
+    skipped = [rel_path for rel_path in local_rel_paths if rel_path in remote_set]
+    return selected, skipped
+
+
+def _print_upload_triage_preflight(result: UploadTriageResult) -> None:
+    print(f"kind: {result.kind}")
+    print(f"local: {result.local_folder}")
+    print(f"remote: {result.remote_path}")
+    print(f"selected: {len(result.selected_rel_paths)}")
+    print(f"skipped: {len(result.skipped_rel_paths)}")
+    sample = result.selected_rel_paths[:5]
+    print(f"sample_selected: {sample if sample else []}")
+    print(f"command: {shlex.join(result.rsync_cmd)}")
+
+
+def _execute_upload_triage(result: UploadTriageResult, remote_login: str, yes: bool) -> int:
+    if not result.selected_rel_paths:
+        print("No files selected for upload.")
+        return 0
+    if not yes and not _yes_no("Run upload_triage upload now?", default=True):
+        print("Cancelled.")
+        return 0
+
+    tmp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tmp:
+            for rel_path in result.selected_rel_paths:
+                tmp.write(f"{rel_path}\n")
+            tmp_path = tmp.name
+        cmd = _build_rsync_files_from_cmd(
+            remote=remote_login,
+            local_folder=result.local_folder,
+            remote_path=result.remote_path,
+            files_from_path=tmp_path,
+        )
+        return _run_command(cmd)
+    finally:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except FileNotFoundError:
+                pass
+
+
+def upload_triage(
+    *,
+    dataset_name: str | None,
+    project_title: str | None,
+    plan: int | None,
+    datafolder_type: str | None,
+    remote: str | None,
+    yes: bool,
+    overwrite: bool,
+    execute: bool,
+    config_path: Path | None,
+) -> int:
+    config = _load_hpc_config(config_path)
+    remote_login = remote or config["login"]
+    kind, local_folder, remote_path = _resolve_upload_triage_target(
+        dataset_name=dataset_name,
+        project_title=project_title,
+        plan=plan,
+        datafolder_type=datafolder_type,
+    )
+    if not local_folder.is_dir():
+        raise ConfigError(f"Local folder is not a directory: {local_folder}")
+
+    local_rel_paths = _list_local_files_recursive(local_folder)
+    remote_rel_paths: list[str] = []
+    if not overwrite:
+        try:
+            remote_rel_paths = _list_remote_files_recursive(remote_login, remote_path)
+        except ConfigError as exc:
+            raise ConfigError(
+                f"{exc} overwrite=False requires remote file listing; use --overwrite to skip remote probing."
+            ) from exc
+    selected_rel_paths, skipped_rel_paths = _select_upload_rel_paths(local_rel_paths, remote_rel_paths, overwrite=overwrite)
+
+    result = UploadTriageResult(
+        kind=kind,
+        local_folder=local_folder,
+        remote_path=remote_path,
+        selected_rel_paths=selected_rel_paths,
+        skipped_rel_paths=skipped_rel_paths,
+        rsync_cmd=_build_rsync_files_from_cmd(
+            remote=remote_login,
+            local_folder=local_folder,
+            remote_path=remote_path,
+            files_from_path="<files-from>",
+        ),
+    )
+    _print_upload_triage_preflight(result)
+    if not execute:
+        print("Plan-only: pass --execute to run rsync.")
+        return 0
+    return _execute_upload_triage(result=result, remote_login=remote_login, yes=yes)
+
+
+def run_upload_triage(
+    dataset_name: str | None,
+    project_title: str | None,
+    plan: int | None,
+    datafolder_type: str | None,
+    remote: str | None,
+    yes: bool,
+    overwrite: bool,
+    execute: bool,
+    dry_run: bool,
+    config_path: Path | None,
+) -> int:
+    return upload_triage(
+        dataset_name=dataset_name,
+        project_title=project_title,
+        plan=plan,
+        datafolder_type=datafolder_type,
+        remote=remote,
+        yes=yes,
+        overwrite=overwrite,
+        execute=execute and not dry_run,
+        config_path=config_path,
+    )
 
 
 def run_dataset_upload(dataset_names: list[str], remote: str | None, yes: bool, config_path: Path | None) -> int:
@@ -544,9 +922,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("dataset_names", nargs="*", help="Dataset names in config, e.g. kits23.")
     p.add_argument(
         "--mode",
-        choices=("upload", "update_dataset", "poll_datasets"),
+        choices=("upload", "update_dataset", "poll_datasets", "upload_triage"),
         default="upload",
-        help="upload = full upload flow, update_dataset = delta update (images/lms), poll_datasets = read-only drift poll.",
+        help=(
+            "upload = full upload flow, update_dataset = delta update (images/lms), "
+            "poll_datasets = read-only drift poll, upload_triage = plan/execute generic upload by dataset "
+            "or preprocessed project folder."
+        ),
     )
     p.add_argument(
         "--remote",
@@ -556,12 +938,44 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path, default=None, help="Path to hpc.yaml (default: $FRAN_CONF/hpc.yaml).")
     p.add_argument("--yes", action="store_true", help="Skip confirmation prompt.")
     p.add_argument("--dry-run", action="store_true", help="For update_dataset: show upload/delete plan only.")
+    p.add_argument("--dataset-name", default=None, help="For upload_triage dataset target from datasets.yaml.")
+    p.add_argument("--project-title", default=None, help="For upload_triage preprocessed project title.")
+    p.add_argument("--plan", type=int, default=None, help="For upload_triage preprocessed mode: plan id.")
+    p.add_argument(
+        "--datafolder-type",
+        default=None,
+        choices=("kbd", "source", "lbd", "pbd", "whole"),
+        help="For upload_triage preprocessed mode: explicit datafolder type. Default derives from plan mode.",
+    )
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="For upload_triage: upload all local files regardless of remote file presence.",
+    )
+    p.add_argument(
+        "--execute",
+        action="store_true",
+        help="For upload_triage: execute rsync (default is plan-only).",
+    )
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.mode == "upload_triage":
+            return run_upload_triage(
+                dataset_name=args.dataset_name,
+                project_title=args.project_title,
+                plan=args.plan,
+                datafolder_type=args.datafolder_type,
+                remote=args.remote,
+                yes=args.yes,
+                overwrite=args.overwrite,
+                execute=args.execute,
+                dry_run=args.dry_run,
+                config_path=args.config,
+            )
         if args.mode == "poll_datasets":
             return run_poll_datasets(
                 dataset_names=args.dataset_names,
