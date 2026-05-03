@@ -1,9 +1,9 @@
 [tool.uv.workspace]
 members = [
-  "gmail_agent",
-  "linkedin_agent",
-  "dicom_xnat_agent",
-  "hpc_agent"
+  "gmail",
+  "linkedin",
+  "dicom_xnat",
+  "hpc"
 ]
 
 [tool.superrepo]

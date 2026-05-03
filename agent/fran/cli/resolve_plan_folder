@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec /home/ub/mambaforge/envs/dl/bin/python \
+  /home/ub/code/fran/fran/run/project/resolve_plan_folder.py \
+  "$@"

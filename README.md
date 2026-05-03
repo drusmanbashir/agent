@@ -14,6 +14,7 @@ Super-repo for multiple focused agents:
 - `agent/dicom_xnat_agent/`
 - `agent/hpc_agent/`
 - `agent/shared/`
+- `agent/fran/`
 - `agent_hub.py`
 
 ## Workspace
