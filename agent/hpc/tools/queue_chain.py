@@ -27,11 +27,12 @@ prefix="$1"
 log_dir="$2"
 partition="$3"
 ntasks="$4"
-time_limit="$5"
-mem_per_cpu="$6"
-mail_type="$7"
-dry_run="$8"
-shift 8
+cpus_per_task="$5"
+time_limit="$6"
+mem_per_cpu="$7"
+mail_type="$8"
+dry_run="$9"
+shift 9
 
 commands=("$@")
 dep_job=""
@@ -47,6 +48,7 @@ for cmd in "${commands[@]}"; do
     -D "$log_dir"
     -p "$partition"
     -n "$ntasks"
+    --cpus-per-task="$cpus_per_task"
     -t "$time_limit"
     --mem-per-cpu="$mem_per_cpu"
     -o "$log_dir/%x-%j.out"
@@ -122,6 +124,7 @@ def main(args: argparse.Namespace) -> int:
                 args.log_dir,
                 args.partition,
                 str(args.ntasks),
+                str(args.cpus_per_task),
                 args.time,
                 args.mem_per_cpu,
                 args.mail_type,
@@ -150,6 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--log-dir", default="/data/EECS-LITQ/fran_storage/logs", help="Slurm log directory.")
     parser.add_argument("--partition", default="compute", help="Slurm partition.")
     parser.add_argument("--ntasks", type=int, default=1, help="Slurm -n value per queued job.")
+    parser.add_argument("--cpus-per-task", type=int, default=16, help="Slurm --cpus-per-task value per queued job.")
     parser.add_argument("--time", default="3:00:00", help="Slurm time limit per job.")
     parser.add_argument("--mem-per-cpu", default="8G", help="Slurm memory per CPU.")
     parser.add_argument("--mail-type", default="NONE", help="Slurm --mail-type value, or NONE.")

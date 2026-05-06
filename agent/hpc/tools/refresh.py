@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import fnmatch
 import os
 import posixpath
 import shlex
@@ -29,9 +30,11 @@ CONF_SYNC = (
     ("sinclair_hpc_path_mapping.yaml", "sinclair_hpc_path_mapping.yaml"),
 )
 LOCAL_HPC_REPOS = ("fran", "localiser", "utilz", "label_analysis")
+RBD_JSON_REL = Path("predictions") / "totalseg_localiser" / "train"
 
 
 LOCAL_COLD_STORAGE_ENV = "COLD_STORAGE"
+SYNC_ON_DEMAND_PATTERNS = ("uls23_*",)
 
 
 def _code_root() -> Path:
@@ -219,6 +222,23 @@ def _dataset_names(local_map: dict[str, object], remote_map: dict[str, object], 
     return sorted(set(local_map) & set(remote_map))
 
 
+def _is_sync_on_demand_dataset(dataset_name: str) -> bool:
+    return any(fnmatch.fnmatch(dataset_name, pattern) for pattern in SYNC_ON_DEMAND_PATTERNS)
+
+
+def _filter_sync_on_demand_datasets(dataset_names: list[str], explicit: bool) -> tuple[list[str], list[str]]:
+    if explicit:
+        return dataset_names, []
+    selected: list[str] = []
+    skipped: list[str] = []
+    for dataset_name in dataset_names:
+        if _is_sync_on_demand_dataset(dataset_name):
+            skipped.append(dataset_name)
+            continue
+        selected.append(dataset_name)
+    return selected, skipped
+
+
 def _print_rel_list(label: str, paths: list[str]) -> None:
     print(f"{label} {len(paths)}")
     for rel_path in paths:
@@ -330,6 +350,17 @@ def _refresh_project_status(remote: str, cold_storage: str, dry_run: bool) -> in
     return _replace_remote_file(remote, local_path, remote_path, dry_run)
 
 
+def _refresh_rbd_json_cache(remote: str, local_cold_storage: Path, dry_run: bool) -> int:
+    local_path = local_cold_storage / RBD_JSON_REL
+    remote_path = _map_local_path_to_hpc_path(str(local_path))
+    script = _repo_root() / "cli" / "rbd_json_upload.sh"
+    cmd = [str(script)]
+    if dry_run:
+        cmd.append("--dry-run")
+    cmd.extend([str(local_path), f"{remote}:{remote_path}"])
+    return _run(cmd, dry_run=False)
+
+
 def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names: list[str], dry_run: bool) -> int:
     local_map = _load_dataset_map(conf_dir / "datasets.yaml")
     remote_map_path = f"{cold_storage}/conf/datasets.yaml"
@@ -338,6 +369,7 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
         raise ConfigError(proc.stderr.strip() or f"failed remote read: {remote_map_path}")
     remote_map = _load_dataset_map_text(proc.stdout, remote_map_path)
     names = _dataset_names(local_map, remote_map, dataset_names)
+    names, skipped_sync_on_demand = _filter_sync_on_demand_datasets(names, explicit=bool(dataset_names))
     for dataset_name in names:
         if dataset_name not in local_map or dataset_name not in remote_map:
             raise ConfigError(f"dataset missing from one map: {dataset_name}")
@@ -393,6 +425,12 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
         rc = _move_remote_extras(remote, cold_storage, dataset_name, remote_root, move_rel, dry_run)
         if rc != 0:
             return rc
+    if skipped_sync_on_demand:
+        print(
+            "SKIP sync-on-demand datasets: "
+            + ", ".join(skipped_sync_on_demand)
+            + " (matched sync-on-demand patterns and were skipped in broad refresh)"
+        )
     return 0
 
 
@@ -416,6 +454,9 @@ def main(args: argparse.Namespace) -> int:
     if rc != 0:
         return rc
     rc = _refresh_project_status(remote, cold_storage, args.dry_run)
+    if rc != 0:
+        return rc
+    rc = _refresh_rbd_json_cache(remote, local_cold_storage, args.dry_run)
     if rc != 0:
         return rc
     return _sync_datasets(remote, conf_dir, cold_storage, args.dataset_names, args.dry_run)

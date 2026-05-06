@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR=/home/ub/code/agent
+APP=agent.control_plane.web:app
+HOST=127.0.0.1
+PORT=8780
+PATTERN="uvicorn --app-dir ${APP_DIR} ${APP} --host ${HOST} --port ${PORT}"
+
+start() {
+  exec uvicorn --app-dir "$APP_DIR" "$APP" --host "$HOST" --port "$PORT" "$@"
+}
+
+stop() {
+  pkill -f "$PATTERN"
+}
+
+status() {
+  pgrep -af "$PATTERN" || true
+}
+
+cmd="${1:-start}"
+
+case "$cmd" in
+  start)
+    if [ "$#" -gt 0 ]; then
+      shift
+    fi
+    start "$@"
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  *)
+    start "$@"
+    ;;
+esac

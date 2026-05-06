@@ -18,43 +18,102 @@
 - `cli/hpc_rsync.sh <rsync_args...>`
   - Pass-through to `hpc_ssh.sh --rsync`.
 
+- `cli/env_refresh.sh [packages...] [--check-only]`
+  - Preferred PATH entrypoint for comparing local runtime package versions against the HPC `dl` env and refreshing HPC when it is behind.
+  - Uses `tools/env_refresh.py` locally plus `cli/env_refresh_remote.sh` remotely through `cli/hpc_ssh.sh --script`.
+  - Default package set: `torch`, `torchvision`, `torchaudio`, `torchmetrics`, `lightning`, `monai`, `numpy`, `nibabel`.
+  - Package scope is explicit: only requested packages are compared and updated.
+  - Other packages install individually pinned to the local version only when HPC is missing or behind.
+  - `--check-only` reports classifications without mutating HPC.
+  - Remote Python defaults to `/data/home/mpx588/.conda/envs/dl/bin/python` and can be overridden with `HPC_ENV_REFRESH_REMOTE_PYTHON`.
+
 - `cli/interactive.sh [salloc args...]`
   - Opens an interactive SSH TTY to HPC and runs `salloc`.
-  - Defaults to `salloc -n 16 -t 1:0:0 --mem-per-cpu=8G`.
+  - Defaults to `salloc --ntasks=1 --cpus-per-task=16 -t 1:0:0 --mem-per-cpu=8G`.
+  - For single-process Lightning training, prefer one task with CPU threads. Explicit multi-task allocations can trigger Lightning Slurm validation.
 
 - `cli/hpc_submit_poll_fetch.sh <local_sbatch_script> [script args...]`
   - Single supported submit+poll pathway.
-  - Submit and poll, then fetch only that job's `.out/.err` into `/s/agent_rw/hpc_logs/<job_id>/`.
+  - Submits the job, writes `job.meta` / `job_registry.tsv`, starts a detached local per-job poll worker, then returns immediately.
+  - `job.meta` now records submit-time provenance including `input_method`, `submit_argv`, and raw downstream `script_args`.
+  - Default poll cadence comes from `cli/poll_schedule.py`, which emits minute intervals `base**i` for `i=0..steps-1` (defaults: `1 3 9 27 81` minutes); the detached worker converts them to seconds and reuses the last interval after the generated steps.
+  - Explicit `--poll-schedule "..."` still overrides the default helper output with raw second intervals, and that override is persisted for the worker.
   - If script args include `-n <k>` or `--num-processes <k>`, submission also infers `sbatch --ntasks=<k>`.
-  - If the completed job runtime exceeds 5 minutes, also copies the fetched logs to local `std.out`/`std.err` in that job folder and opens them in `nvim` when run interactively.
-  - Also appends and updates `/s/agent_rw/hpc_logs/job_registry.tsv` with:
+  - If script args include `-c <k>` or `--cpus-per-task <k>`, submission also infers `sbatch --cpus-per-task=<k>`.
+  - The detached worker updates terminal state in `/s/agent_rw/hpc_logs/job_registry.tsv`, fetches that job's `.out/.err` into the job folder, and prepares `std.out` / `std.err` in the job folder for runs longer than 5 minutes.
+  - Submit path appends and worker path updates `/s/agent_rw/hpc_logs/job_registry.tsv` with:
     - `job_id`, submission time, script path, job name, remote temp script
-    - terminal `state`, `exit_code`, `finished_at` when polling returns completion/cancel/fail.
+    - terminal `state`, `exit_code`, `finished_at`, and `last_polled_at` when polling returns completion/cancel/fail.
+
+- `cli/hpc_resubmit.sh <job_id>`
+  - Resubmits a prior local HPC job from `/s/agent_rw/hpc_logs/<job_id>/job.meta`.
+  - Requires `input_method=hpc_submit_poll_fetch` and a stored `submit_argv`.
+  - Replays the original local submit wrapper invocation through `cli/hpc_submit_poll_fetch.sh` without changing the registry schema.
+
+- `cli/hpc_poll_worker.sh spawn --job-id <job_id> --job-dir <job_dir>`
+- `cli/hpc_poll_worker.sh run --job-id <job_id> --job-dir <job_dir>`
+  - Detached per-job worker helper used by `cli/hpc_submit_poll_fetch.sh`.
+  - `spawn` is lock/sentinel aware and will not launch a duplicate active worker for the same job.
+  - Status polls stamp `last_polled_at` in `job_registry.tsv` on each Slurm poll cycle.
+  - Stores `worker.pid`, `worker.meta`, `worker.log`, `worker.done`, and `poll.log` under the job dir for inspection and recovery.
 
 - `cli/hpc_poll_logs.sh [last|<job_id>]`
   - Canonical poll command for fetching and echoing stdout/stderr for an existing job.
   - Resolves `last` from `job_registry.tsv`; if registry is empty, falls back to newest job dir under `/s/agent_rw/hpc_logs`.
+  - Stamps `last_polled_at` in `job_registry.tsv` whenever it performs an ad hoc status poll.
   - If local logs are missing in `/s/agent_rw/hpc_logs/<job_id>/`, downloads full files from HPC, then keeps canonical copies at:
     - `/s/agent_rw/hpc_logs/<job_id>/std.out`
     - `/s/agent_rw/hpc_logs/<job_id>/std.err`
   - Override destination root via `HPC_POLL_LOG_DEST`.
   - Echoes stdout first, then prompts whether to show stderr (`y/yes` only).
 
+- `cli/hpc_dashboard.py`
+  - Tkinter desktop dashboard for local HPC job inspection.
+  - Reads `/s/agent_rw/hpc_logs/job_registry.tsv` through `tools/job_registry.py`.
+  - Splits Active vs Closed jobs into separate tables and exposes buttons for refresh, per-job poll, poll-all-active, and open/show job dir.
+  - Shows a `Poll` column with the last recorded status poll time.
+  - Poll actions run `cli/hpc_poll_logs.sh` asynchronously so the UI stays responsive.
+
+- `cli/hdash start|stop|status|url`
+  - Preferred local web dashboard service launcher on `PATH`.
+  - `start` first runs `cli/job_registry.sh archive 14`, then detaches a localhost-only HTTP dashboard, writes `service.pid`, `service.log`, `service.meta`, and `actions.log` under `${HPC_LOGS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}/dashboard_service` by default, waits for `/healthz`, then prints the live URL.
+  - `stop` terminates the local dashboard service and clears stale state files.
+  - `status` reports `running` with PID and URL or returns non-zero when stopped.
+  - `url` prints the current live URL only and returns non-zero when stopped.
+  - The service reuses `tools/job_registry.py`, shows Active vs Closed jobs, and triggers adhoc polls through `cli/hpc_poll_logs.sh`.
+
+- `cli/hpc_dashboard start|stop|status|url`
+  - Compatibility alias for `cli/hdash`.
+
+- `cli/hpc_dashboard_web.py --host 127.0.0.1 --port 8765 --state-dir <dir> --meta-file <file>`
+  - Stdlib `http.server` backend for the local browser dashboard.
+  - Reuses `tools/job_registry.py` for an Active/Closed tabbed view and dispatches adhoc poll actions through `cli/hpc_poll_logs.sh`.
+  - Adds a `POLL` column showing the last recorded status poll time.
+  - UI date/time display uses British format `DD/MM/YYYY HH:MM:SS`.
+  - Exposes `/healthz`, `/jobs/<job_id>/{stdout,stderr,poll-log}`, selected-job polling, poll-all-active, and active-job-only cancel-selected.
+  - Cancel-selected uses `cli/hpc_ssh.sh '/opt/slurm/bin/scancel <job_id>'` and then one canonical `cli/hpc_poll_logs.sh <job_id>` poll to refresh registry/log state.
+
 - All repo-managed Slurm submit paths under `cli/` and `tools/` append `job_registry.tsv` on submit.
   - `cli/hpc_submit_poll_fetch.sh` also updates terminal `state`, `exit_code`, and `finished_at` when polling completes.
 
-- `cli/queue_project_init_preproc.sh [--login user@host] <project_title> <mnemonic> <plan_num> <datasource...> [-n <num_processes>]`
+- `cli/queue_project_init_preproc.sh [--login user@host] <project_title> <mnemonic> <plan_num> <datasource...> [-n <num_processes>] [-c <cpus_per_task>]`
   - Queues paired project-init and dependent preproc jobs.
   - Uses the same `-n` value for both Slurm `ntasks` and downstream Python `-n`.
+  - Defaults both queued jobs to `--cpus-per-task=16`; `-c/--cpus-per-task` overrides both jobs together.
   - Appends both returned Slurm job IDs to the registry at submit time.
 
 - `cli/queue_chain.sh [queue_chain args...]`
   - Queues dependent Slurm jobs via `tools/queue_chain.py`.
+  - Defaults queued jobs to `--cpus-per-task=16`; `--cpus-per-task <k>` overrides the value for every queued step.
   - Appends each returned Slurm job ID to the registry at submit time.
 
 - `cli/poll_active_jobs.sh [username]`
   - Poll active Slurm jobs using `squeue`.
   - If username omitted, uses the configured HPC username.
+
+- `cli/poll_schedule.py [--base <int>] [--steps <int>]`
+  - Emits minute poll intervals as powers of `base`.
+  - Defaults to `--base 3 --steps 5`, which prints `1 3 9 27 81`.
 
 - `cli/job_registry.sh add <job_id> <submitted_at> <sbatch_file> <job_name> <remote_script>`
   - Append one submitted job row to the registry.
@@ -83,6 +142,18 @@
   - Print active registry file path.
   - Default path: `/s/agent_rw/hpc_logs/job_registry.tsv`
 
+- `cli/job_registry.sh polled <job_id> [timestamp]`
+  - Update only the `last_polled_at` field for a job row.
+
+- `cli/job_registry.sh archive [days]`
+  - Archive terminal jobs older than `days` from the live registry TSV into `job_registry.archive.tsv`.
+  - Default age threshold is `14` days.
+
+- `cli/job_registry.sh archive [days]`
+  - Archive terminal jobs older than `days` from the active registry.
+  - Default is `14` days.
+  - Moves rows from `/s/agent_rw/hpc_logs/job_registry.tsv` into `/s/agent_rw/hpc_logs/job_registry.archive.tsv`.
+
 ### Registry TSV Schema
 
 - File: `/s/agent_rw/hpc_logs/job_registry.tsv`
@@ -96,10 +167,19 @@
   6. `state`
   7. `exit_code`
   8. `finished_at`
+  9. `last_polled_at`
 
-- `cli/preproc.sh <t> <p> [-n <num_processes>]`
+- Backward compatibility:
+  - Existing 8-column rows remain readable and default `last_polled_at` to `-`.
+
+- Archive file:
+  - `/s/agent_rw/hpc_logs/job_registry.archive.tsv`
+
+- `cli/preproc.sh <t> <p> [-n <num_processes>] [-c <cpus_per_task>]`
   - Slurm preprocess payload: `analyze_resample.py -t <t> -p <p> -n <num_processes>`.
   - Default `num_processes` is `1`.
+  - Defaults to `#SBATCH --cpus-per-task=16`; accepts `-c/--cpus-per-task` so callers can override submission CPU count.
+  - Exports `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, and `NUMEXPR_NUM_THREADS` from `SLURM_CPUS_PER_TASK`.
   - Emits timestamped failure context to stderr (`failed_cmd`, `exit_code`) via `ERR` trap.
 
 - FRAN-owned project shell CLIs
@@ -111,16 +191,23 @@
   - Repo-local project editor for existing FRAN projects.
   - Adds only missing datasources via `Project.add_data(...)`, then runs `maybe_store_projectwide_properties(overwrite=False)`.
 
-- `cli/project_delete_all.sh <t1> [t2 ...]`
+- `cli/project_delete_all.sh [t1 ...] [-c <cpus_per_task>]`
   - Slurm payload that loops project deletes.
+  - Defaults to `#SBATCH --cpus-per-task=16`; accepts `-c/--cpus-per-task` so callers can override submission CPU count.
+  - Exports `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, and `NUMEXPR_NUM_THREADS` from `SLURM_CPUS_PER_TASK`.
+  - With no project titles, exits successfully without deleting anything.
 
-- `cli/datasource.sh <f> <m> [-n <num_processes>]`
+- `cli/datasource.sh <f> <m> [-n <num_processes>] [-c <cpus_per_task>]`
   - Slurm datasource-init payload: `datasource_init.py <f> <m> -n <num_processes>`.
   - Default `num_processes` is `1`.
+  - Defaults to `#SBATCH --cpus-per-task=16`; accepts `-c/--cpus-per-task` so callers can override submission CPU count.
+  - Exports `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, and `NUMEXPR_NUM_THREADS` from `SLURM_CPUS_PER_TASK`.
 
-- `cli/datasource_update.sh <f> <m> [-n <num_processes>] [--dry-run] [--return-voxels]`
+- `cli/datasource_update.sh <f> <m> [-n <num_processes>] [-c <cpus_per_task>] [--dry-run] [--return-voxels]`
   - Slurm datasource-update payload.
   - Default `num_processes` is `1`.
+  - Defaults to `#SBATCH --cpus-per-task=16`; accepts `-c/--cpus-per-task` so callers can override submission CPU count.
+  - Exports `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, and `NUMEXPR_NUM_THREADS` from `SLURM_CPUS_PER_TASK`.
 
 - `cli/update_datasources [dataset_name ...] [-n <num_processes>] [--dry-run] [--return-voxels]`
   - HPC wrapper for `fran/run/dataregistry/update_datasources.py`.
@@ -129,9 +216,11 @@
 
 - `cli/train.sh <t> <p> <f> <l> <i> <v> <r>`
   - Slurm GPU training payload (`train_retry.py`).
+  - Train stack behavior: `run_name=none` initializes a new run. Any non-`none` run name targets or resumes an existing run.
 
 - `cli/local_train.sh <t> <p> <f> <l> <i> <v> <r>`
   - Local training payload (`train.py`).
+  - Train stack behavior: `run_name=none` initializes a new run. Any non-`none` run name targets or resumes an existing run.
 
 - `cli/git_all.sh [branch]`
   - Reset all git repos under `$COLD_STORAGE/code` to `origin/<branch>` (skips `ITK`).
@@ -149,6 +238,8 @@
     `datasets_hpc.yaml -> datasets.yaml`, `config_hpc.yaml -> config.yaml`, `best_runs.yaml -> best_runs.yaml`.
   - Stage 3: refresh `fran/run/project/project_status.py` onto HPC if stale.
   - Stage 4: sync dataset trees using local `$COLD_STORAGE/conf/datasets.yaml` vs remote `$COLD_STORAGE/conf/datasets.yaml`.
+  - Sync-on-demand dataset patterns such as `uls23_*` are skipped in broad/default refresh runs and explicitly listed after the dataset stage.
+  - Explicitly named datasets still proceed even if they match a sync-on-demand pattern.
   - Dataset sync scope is limited to `images/` and `lms/`.
   - Each dataset prints a clear per-dataset diff plan before mutation.
   - Plan output classifies changes as `MISSING_REMOTE`, `STALE_REMOTE_OLDER`, `EXTRA_NOT_LOCAL`, and `REMOTE_NEWER_KEEP`.
@@ -173,7 +264,14 @@
 - `tools/cli.py`
   - Main CLI for config loading, ssh credential fields, upload/download flows.
 
+- `tools/job_registry.py`
+  - First-class Python abstraction for `job_registry.tsv`.
+  - Preserves old 8-column TSV rows while treating `last_polled_at` as a first-class field in newer rows.
+  - Derives active/closed status and resolves per-job local paths (`job_dir`, `std.out`, `std.err`, worker metadata/logs).
+
 - `tools/datasets.py`
+  - Generic dataset upload/update/poll tooling also skips sync-on-demand datasets such as `uls23_*` in broad/default runs.
+  - Explicitly named datasets still proceed.
   - Dataset upload/update/poll utilities using config mappings.
 
 - `tools/code.py`

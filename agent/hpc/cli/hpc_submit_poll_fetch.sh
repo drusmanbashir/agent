@@ -4,20 +4,32 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CALLER_CWD="$(pwd)"
-PYTHON_BIN="/home/ub/mambaforge/envs/dl/bin/python"
+PYTHON_BIN="${HPC_PYTHON_BIN:-/home/ub/mambaforge/envs/dl/bin/python}"
+SSH_SCRIPT="${HPC_SSH_SCRIPT:-${SCRIPT_DIR}/hpc_ssh.sh}"
+RSYNC_SCRIPT="${HPC_RSYNC_SCRIPT:-${SCRIPT_DIR}/hpc_rsync.sh}"
+REGISTRY_SCRIPT="${HPC_JOB_REGISTRY_SCRIPT:-${SCRIPT_DIR}/job_registry.sh}"
 
 usage() {
   cat <<'EOF'
 Usage: cli/hpc_submit_poll_fetch.sh [--poll-schedule "60 120 900"] [--sbatch-arg <arg>]... <local_sbatch_script> [script args...]
 
-Submit a Slurm script, poll until completion, and fetch that job's stdout/stderr
-into the local job folder. If the job runtime exceeds 5 minutes, also copy those
-logs to local `std.out` and `std.err` files and open them in Neovim when run from
-an interactive terminal with `nvim` available.
+Submit a Slurm script, write local job metadata, start a detached per-job poll
+worker, and return immediately. The worker handles Slurm polling, registry
+updates, and log fetch into the local job folder after terminal completion.
 EOF
 }
 
-POLL_SCHEDULE_RAW="${HPC_SBATCH_POLL_SCHEDULE:-120 600}"
+shell_join_quoted() {
+  local out=()
+  local arg=""
+  for arg in "$@"; do
+    out+=("$(printf "%q" "${arg}")")
+  done
+  printf '%s\n' "${out[*]}"
+}
+
+ORIGINAL_ARGV=("$@")
+POLL_SCHEDULE_RAW="${HPC_SBATCH_POLL_SCHEDULE:-}"
 SBATCH_EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -93,7 +105,6 @@ cd "${REPO_ROOT}"
 OUT_ROOT="${HPC_LOGS_LOCAL_ROOT:-${HPC_JOBS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}}"
 REMOTE_DIR="${HPC_SBATCH_REMOTE_DIR:-.hpc/sbatch}"
 LOGIN="${HPC_LOGIN:-$("${PYTHON_BIN}" -m tools.cli load_pwd --field login)}"
-POLL_SCHEDULE_STR="${POLL_SCHEDULE_RAW}"
 
 job_name="$(awk '/^#SBATCH[[:space:]]+-J[[:space:]]+/ {print $3; exit}' "${submit_file}")"
 log_out_template="$(awk '/^#SBATCH[[:space:]]+-o[[:space:]]+/ {print $3; exit}' "${submit_file}")"
@@ -102,14 +113,13 @@ log_err_template="$(awk '/^#SBATCH[[:space:]]+-e[[:space:]]+/ {print $3; exit}' 
 base_name="$(basename "${SBATCH_FILE}")"
 remote_dir_q="$(printf "%q" "${REMOTE_DIR}")"
 remote_template_q="$(printf "%q" "${REMOTE_DIR}/${base_name%.sh}.XXXXXX.sh")"
-remote_script="$("${SCRIPT_DIR}/hpc_ssh.sh" "mkdir -p ${remote_dir_q} && mktemp ${remote_template_q}" | tail -n 1)"
-"${SCRIPT_DIR}/hpc_rsync.sh" -az "${submit_file}" "${LOGIN}:${remote_script}" >/dev/null
+remote_script="$("${SSH_SCRIPT}" "mkdir -p ${remote_dir_q} && mktemp ${remote_template_q}" | tail -n 1)"
+"${RSYNC_SCRIPT}" -az "${submit_file}" "${LOGIN}:${remote_script}" >/dev/null
 if [[ -n "${tmp_submit_file}" ]]; then
   rm -f "${tmp_submit_file}"
 fi
 
 remote_script_q="$(printf "%q" "${remote_script}")"
-poll_schedule_q="${POLL_SCHEDULE_STR}"
 script_args_q=()
 for arg in "$@"; do
   script_args_q+=("$(printf "%q" "${arg}")")
@@ -118,6 +128,8 @@ sbatch_extra_args_q=()
 for arg in "${SBATCH_EXTRA_ARGS[@]}"; do
   sbatch_extra_args_q+=("$(printf "%q" "${arg}")")
 done
+submit_argv_raw="$(shell_join_quoted "${ORIGINAL_ARGV[@]}")"
+script_args_raw="$(shell_join_quoted "$@")"
 
 infer_sbatch_ntasks_from_script_args() {
   local prev=""
@@ -137,85 +149,64 @@ infer_sbatch_ntasks_from_script_args() {
   return 1
 }
 
+infer_sbatch_cpus_per_task_from_script_args() {
+  local prev=""
+  for arg in "$@"; do
+    if [[ "${prev}" == "-c" || "${prev}" == "--cpus-per-task" ]]; then
+      printf '%s\n' "${arg}"
+      return 0
+    fi
+    case "${arg}" in
+      -c=*|--cpus-per-task=*)
+        printf '%s\n' "${arg#*=}"
+        return 0
+        ;;
+    esac
+    prev="${arg}"
+  done
+  return 1
+}
+
 sbatch_ntasks_q=""
 inferred_ntasks="$(infer_sbatch_ntasks_from_script_args "$@" || true)"
 if [[ -n "${inferred_ntasks:-}" ]]; then
   sbatch_ntasks_q="$(printf "%q" "--ntasks=${inferred_ntasks}")"
 fi
 
+sbatch_cpus_per_task_q=""
+inferred_cpus_per_task="$(infer_sbatch_cpus_per_task_from_script_args "$@" || true)"
+if [[ -n "${inferred_cpus_per_task:-}" ]]; then
+  sbatch_cpus_per_task_q="$(printf "%q" "--cpus-per-task=${inferred_cpus_per_task}")"
+fi
+
 read -r -d '' submit_inner <<EOF || true
 set -euo pipefail
 chmod +x ${remote_script_q}
-sbatch --parsable ${sbatch_ntasks_q} ${sbatch_extra_args_q[*]} ${remote_script_q} ${script_args_q[*]} | awk -F';' '{print \$1}'
+sbatch --parsable ${sbatch_ntasks_q} ${sbatch_cpus_per_task_q} ${sbatch_extra_args_q[*]} ${remote_script_q} ${script_args_q[*]} | awk -F';' '{print \$1}'
 EOF
 
-job_id="$("${SCRIPT_DIR}/hpc_ssh.sh" "bash -lc $(printf "%q" "${submit_inner}")" | tail -n 1)"
+job_id="$("${SSH_SCRIPT}" "bash -lc $(printf "%q" "${submit_inner}")" | tail -n 1)"
 job_dir="${OUT_ROOT}/${job_id}"
 mkdir -p "${job_dir}"
 submitted_at="$(date -Iseconds)"
 
-"${SCRIPT_DIR}/job_registry.sh" add "${job_id}" "${submitted_at}" "${SBATCH_FILE}" "${job_name}" "${remote_script}"
+"${REGISTRY_SCRIPT}" add "${job_id}" "${submitted_at}" "${SBATCH_FILE}" "${job_name}" "${remote_script}" "hpc_submit_poll_fetch" "${submit_argv_raw}"
 
 {
+  echo "input_method=hpc_submit_poll_fetch"
+  echo "submit_argv=${submit_argv_raw}"
+  echo "script_args=${script_args_raw}"
   echo "job_id=${job_id}"
   echo "job_name=${job_name}"
   echo "submitted_at=${submitted_at}"
   echo "sbatch_file=${SBATCH_FILE}"
   echo "remote_script=${remote_script}"
+  echo "poll_schedule=${POLL_SCHEDULE_RAW}"
+  echo "log_out_template=${log_out_template}"
+  echo "log_err_template=${log_err_template}"
 } > "${job_dir}/job.meta"
 
 echo "Submitted batch job ${job_id}"
-echo "Polling via schedule: ${POLL_SCHEDULE_STR}"
-
-read -r -d '' poll_inner <<EOF || true
-set -euo pipefail
-poll_schedule="${poll_schedule_q}"
-read -r -a poll_steps <<< "\${poll_schedule}"
-idx=0
-while squeue -h -j ${job_id} | grep -q .; do
-  squeue -h -j ${job_id} -o '%i|%T|%M|%R'
-  if [[ "\${idx}" -lt "\${#poll_steps[@]}" ]]; then
-    sleep "\${poll_steps[\${idx}]}"
-  else
-    sleep "\${poll_steps[-1]}"
-  fi
-  idx=\$((idx+1))
-done
-sacct -n -P -j ${job_id} --format=JobIDRaw,State,ExitCode,ElapsedRaw | awk -F'|' -v id='${job_id}' '\$1==id {print \$0; exit}'
-EOF
-
-"${SCRIPT_DIR}/hpc_ssh.sh" "bash -lc $(printf "%q" "${poll_inner}")" | tee "${job_dir}/poll.log"
-final_line="$(tail -n 1 "${job_dir}/poll.log")"
-final_state="$(echo "${final_line}" | awk -F'|' '{print $2}')"
-final_exit="$(echo "${final_line}" | awk -F'|' '{print $3}')"
-elapsed_raw="$(echo "${final_line}" | awk -F'|' '{print $4}')"
-finished_at="$(date -Iseconds)"
-
-"${SCRIPT_DIR}/job_registry.sh" finish "${job_id}" "${final_state}" "${final_exit}" "${finished_at}"
-
-remote_out="${log_out_template//%x/${job_name}}"
-remote_out="${remote_out//%j/${job_id}}"
-remote_err="${log_err_template//%x/${job_name}}"
-remote_err="${remote_err//%j/${job_id}}"
-
-echo "Fetching ${remote_out}"
-echo "Fetching ${remote_err}"
-"${SCRIPT_DIR}/hpc_rsync.sh" -az "${LOGIN}:${remote_out}" "${job_dir}/"
-"${SCRIPT_DIR}/hpc_rsync.sh" -az "${LOGIN}:${remote_err}" "${job_dir}/"
-
-local_out="${job_dir}/$(basename "${remote_out}")"
-local_err="${job_dir}/$(basename "${remote_err}")"
-
-if [[ "${elapsed_raw}" =~ ^[0-9]+$ ]] && (( elapsed_raw > 300 )); then
-  cp -f "${local_out}" "${job_dir}/std.out"
-  cp -f "${local_err}" "${job_dir}/std.err"
-  echo "Job runtime ${elapsed_raw}s > 300s; prepared ${job_dir}/std.out and ${job_dir}/std.err"
-  if command -v nvim >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
-    echo "Opening long-run logs in nvim"
-    nvim -p "${job_dir}/std.out" "${job_dir}/std.err"
-  else
-    echo "Skipping nvim auto-open: interactive terminal or nvim not available"
-  fi
-fi
-
-echo "Saved job files in ${job_dir}"
+"${SCRIPT_DIR}/hpc_poll_worker.sh" spawn --job-id "${job_id}" --job-dir "${job_dir}"
+echo "job_dir=${job_dir}"
+echo "manual_logs=cli/hpc_poll_logs.sh ${job_id}"

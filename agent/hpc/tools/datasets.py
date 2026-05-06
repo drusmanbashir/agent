@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import os
 import posixpath
 import shlex
@@ -19,6 +20,7 @@ COMMON_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config.yaml")
 COMMON_HPC_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config_hpc.yaml")
 SYNC_SUBDIRS = ("images", "lms")
 SYNC_PREFIXES = tuple(f"{subdir}/" for subdir in SYNC_SUBDIRS)
+SYNC_ON_DEMAND_PATTERNS = ("uls23_*",)
 
 
 FileTimes = dict[str, int]
@@ -36,6 +38,27 @@ class UploadTriageResult:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def _is_sync_on_demand_dataset(dataset_name: str) -> bool:
+    return any(fnmatch.fnmatch(dataset_name, pattern) for pattern in SYNC_ON_DEMAND_PATTERNS)
+
+
+def _filter_sync_on_demand_datasets(dataset_names: list[str], explicit: bool) -> tuple[list[str], list[str]]:
+    if explicit:
+        return dataset_names, []
+    selected: list[str] = []
+    skipped: list[str] = []
+    for dataset_name in dataset_names:
+        if _is_sync_on_demand_dataset(dataset_name):
+            skipped.append(dataset_name)
+            continue
+        selected.append(dataset_name)
+    return selected, skipped
+
+
+def _print_sync_on_demand_skip(dataset_name: str) -> None:
+    print(f"sync-on-demand dataset skipped: {dataset_name}")
 
 
 def _strip_yaml_scalar(value: str) -> str:
@@ -821,6 +844,9 @@ def poll_datasets(dataset_names: list[str], remote: str | None, config_path: Pat
     datasets_hpc_conf = _dataset_mapping(_load_yaml_mapping(Path(DATASETS_HPC_CONF).expanduser()))
     remote_login = remote or config["login"]
     names = _poll_dataset_names(dataset_names, datasets_conf, datasets_hpc_conf)
+    names, skipped_sync_on_demand = _filter_sync_on_demand_datasets(names, explicit=bool(dataset_names))
+    for dataset_name in skipped_sync_on_demand:
+        _print_sync_on_demand_skip(dataset_name)
 
     print(
         "\t".join(

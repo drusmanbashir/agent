@@ -6,13 +6,27 @@
 - `HPC_DEFAULT_DOWNLOAD_SRC=/s/agent_rw/`
 - `HPC_DEFAULT_UPLOAD_DEST=$COLD_STORAGE@hpc`
 
-## Startup Inventory
-- When initialized in `~/code/agent`, first list available CLI entrypoints grouped by subfolder.
-- Scan for FUNCTIONS.md in subfolders and also in ~/code/fran/fran/run/ to find cli helpers.
-- Summarize only the CLI methods and runnable entrypoints that are documented there.
-- Keep the listing concise: command name/path plus a short purpose when obvious from the README.
-- End the inventory with the `agent/hpc/cli/` group as the final section.
+## Architecture Anchors
+- Use `/home/ub/code/agent/ORCHESTRATION.md` for canonical execution paths, layer boundaries, and ownership.
+- Use `/home/ub/code/agent/REGISTRY_SCHEMA.md` for job registry columns, per-job artifacts, and compatibility rules.
+- Use `/home/ub/code/agent/CRASH_PROTOCOL.md` for crash triage flow, minimum evidence, and CRASHLOG expectations.
+- Treat these docs as first-stop architecture source. Keep reusable structure there; keep task-specific operating rules in this file.
 
+## CRASHLOG Policy
+- Maintain an append-only `CRASHLOG` in `/home/ub/code/agent/agent/ts/`.
+- Add a new entry after each crash fix when:
+  - the user reports a crash, or
+  - the agent detects a crash in CLI/process execution.
+- Each entry must record:
+  - crash type (concise statement)
+  - time
+  - fix implemented
+
+## Upstream Caller Policy
+- Hard rule: agent-side helper scripts in `~/code/agent` are subservient to library/app methods in sibling repos under `~/code/...` that they call.
+- Do not change upstream called methods/classes to fit agent scripts.
+- Change the agent script/caller to fit the upstream API/behavior.
+- If a called upstream method drifts significantly from the script signature/contract, prefer rewriting the entire agent-side script from scratch when that preserves readability and keeps code count low.
 
 ## HPC
 HPC refers to a remote computer in Queen Mary Uni, I ssh into, to run deep learning scripts. Relevant phrases:

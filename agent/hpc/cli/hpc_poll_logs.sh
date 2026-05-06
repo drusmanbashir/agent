@@ -274,6 +274,7 @@ poll_finished_at="-"
 read -r poll_state poll_exit poll_finished_at < <(resolve_job_status_from_slurm "${job_id}")
 if [[ -n "${registry_row}" ]]; then
   "${SCRIPT_DIR}/job_registry.sh" status "${job_id}" "${poll_state}" "${poll_exit:-"-"}" "${poll_finished_at:-"-"}"
+  "${SCRIPT_DIR}/job_registry.sh" polled "${job_id}"
 fi
 
 local_out="$(find_log_file "${job_dir}" "out" || true)"

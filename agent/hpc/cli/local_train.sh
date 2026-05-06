@@ -13,17 +13,24 @@ i="$5"
 v="$6"
 r="$7"
 
-python /data/EECS-LITQ/fran_storage/code/fran/fran/run/training/train.py \
-  --project "$t" \
-  --plan-num "$p" \
-  --fold "$f" \
-  --epochs 500 \
-  --compiled false \
-  --profiler false \
-  --wandb true \
-  --cache-rate 0.0 \
-  --bsf true \
-  --train-indices "$i" \
-  --val-every-n-epochs "$v" \
-  --learning-rate "$l" \
-  --run-name "$r"
+cmd=(
+  python /data/EECS-LITQ/fran_storage/code/fran/fran/run/training/train.py
+  --project "$t"
+  --plan-num "$p"
+  --fold "$f"
+  --epochs 500
+  --compiled false
+  --profiler false
+  --wandb true
+  --cache-rate 0.0
+  --bsf true
+  --train-indices "$i"
+  --val-every-n-epochs "$v"
+  --learning-rate "$l"
+)
+
+if [[ -n "${r}" && "${r}" != "none" && "${r}" != "null" ]]; then
+  cmd+=(--run-name "$r")
+fi
+
+"${cmd[@]}"

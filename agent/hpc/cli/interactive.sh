@@ -13,7 +13,7 @@ HPC_STRICT_HOSTKEY="${HPC_STRICT_HOSTKEY:-yes}"
 HPC_SSH_BIN="${HPC_SSH_BIN:-ssh}"
 HPC_SSHPASS_BIN="${HPC_SSHPASS_BIN:-sshpass}"
 
-DEFAULT_ARGS=(-n 16 -t 1:0:0 --mem-per-cpu=8G)
+DEFAULT_ARGS=(--ntasks=1 --cpus-per-task=16 -t 1:0:0 --mem-per-cpu=8G)
 
 usage() {
   cat <<'EOF'
@@ -26,7 +26,7 @@ Description:
 
 Examples:
   cli/interactive.sh
-  cli/interactive.sh -n 8 -t 0:30:0 --mem-per-cpu=6G
+  cli/interactive.sh --ntasks=1 --cpus-per-task=8 -t 0:30:0 --mem-per-cpu=6G
 EOF
 }
 

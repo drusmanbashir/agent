@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 cd "${REPO_ROOT}"
 
@@ -11,6 +12,10 @@ REGISTRY_FILE="${OUT_ROOT}/job_registry.tsv"
 
 mkdir -p "${OUT_ROOT}"
 touch "${REGISTRY_FILE}"
+
+timestamp_now() {
+  date -Iseconds
+}
 
 lock_registry() {
   exec 9>>"${REGISTRY_FILE}.lock"
@@ -32,12 +37,14 @@ case "${cmd}" in
     sbatch_file="$3"
     job_name="$4"
     remote_script="$5"
+    input_method="${6:--}"
+    submit_argv="${7:--}"
     lock_registry
     if has_job_id "${job_id}"; then
       exit 0
     fi
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
-      "${job_id}" "${submitted_at}" "${sbatch_file}" "${job_name}" "${remote_script}" "SUBMITTED" "-" "-" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+      "${job_id}" "${submitted_at}" "${sbatch_file}" "${job_name}" "${remote_script}" "SUBMITTED" "-" "-" "-" "${input_method}" "${submit_argv}" \
       >> "${REGISTRY_FILE}"
     ;;
   submit)
@@ -46,7 +53,9 @@ case "${cmd}" in
     job_name="$3"
     remote_script="$4"
     submitted_at="${5:-$(date -Iseconds)}"
-    "${SCRIPT_DIR}/job_registry.sh" add "${job_id}" "${submitted_at}" "${sbatch_file}" "${job_name}" "${remote_script}"
+    input_method="${6:--}"
+    submit_argv="${7:--}"
+    "${SCRIPT_DIR}/job_registry.sh" add "${job_id}" "${submitted_at}" "${sbatch_file}" "${job_name}" "${remote_script}" "${input_method}" "${submit_argv}"
     ;;
   status)
     job_id="$1"
@@ -60,6 +69,20 @@ case "${cmd}" in
           $6 = s
           $7 = e
           $8 = f
+        }
+        print
+      }
+    ' "${REGISTRY_FILE}" > "${REGISTRY_FILE}.tmp"
+    mv "${REGISTRY_FILE}.tmp" "${REGISTRY_FILE}"
+    ;;
+  polled)
+    job_id="$1"
+    polled_at="${2:-$(timestamp_now)}"
+    lock_registry
+    awk -F'\t' -v OFS='\t' -v j="${job_id}" -v p="${polled_at}" '
+      {
+        if ($1 == j) {
+          $9 = p
         }
         print
       }
@@ -116,5 +139,18 @@ case "${cmd}" in
     ;;
   path)
     echo "${REGISTRY_FILE}"
+    ;;
+  archive)
+    days="${1:-14}"
+    archived_count="$(
+      ARCHIVE_DAYS="${days}" HPC_LOGS_LOCAL_ROOT="${OUT_ROOT}" "${PYTHON_BIN}" -c '
+from tools.job_registry import JobRegistry
+import os
+days = int(os.environ["ARCHIVE_DAYS"])
+print(JobRegistry().archive_jobs(days=days))
+'
+    )"
+    archive_file="${OUT_ROOT}/job_registry.archive.tsv"
+    printf 'archived=%s archive_file=%s\n' "${archived_count}" "${archive_file}"
     ;;
 esac

@@ -3,6 +3,7 @@
 #SBATCH -D /data/EECS-LITQ/fran_storage/logs
 #SBATCH -p highmem
 #SBATCH -n 1
+#SBATCH --cpus-per-task=16
 #SBATCH -t 5:00:00
 #SBATCH --mem=128G
 #SBATCH --mail-type=NONE
@@ -21,7 +22,7 @@ LABEL_ANALYSIS_REPO_ROOT="${FRAN_CODE_ROOT}/label_analysis"
 
 usage() {
   cat <<'EOF'
-Usage: preproc.sh <project_title> <plan_num> [-n <num_processes>]
+Usage: preproc.sh <project_title> <plan_num> [-n <num_processes>] [-c <cpus_per_task>]
 EOF
 }
 
@@ -42,16 +43,23 @@ export FRAN_CONF="${FRAN_CONF_DIR}"
 export PYTHONPATH="${LOCALISER_REPO_ROOT}:${FRAN_REPO_ROOT}:${UTILZ_REPO_ROOT}:${LABEL_ANALYSIS_REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 export FRAN_STORE_LABEL_STATS="${FRAN_STORE_LABEL_STATS:-0}"
 export FRAN_STORE_GIFS="${FRAN_STORE_GIFS:-0}"
+threads="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
+export OMP_NUM_THREADS="${threads}"
+export OPENBLAS_NUM_THREADS="${threads}"
+export MKL_NUM_THREADS="${threads}"
+export NUMEXPR_NUM_THREADS="${threads}"
 
 echo "host=$(hostname)"
 echo "job_id=${SLURM_JOB_ID}"
 echo "partition=${SLURM_JOB_PARTITION}"
 echo "ntasks=${SLURM_NTASKS}"
+echo "cpus_per_task=${SLURM_CPUS_PER_TASK:-}"
 echo "python=$(command -v python)"
 echo "FRAN_CONF=${FRAN_CONF}"
 echo "PYTHONPATH=${PYTHONPATH}"
 echo "FRAN_STORE_LABEL_STATS=${FRAN_STORE_LABEL_STATS}"
 echo "FRAN_STORE_GIFS=${FRAN_STORE_GIFS}"
+echo "OMP_NUM_THREADS=${OMP_NUM_THREADS}"
 
 if [[ $# -lt 2 ]]; then
   usage >&2
@@ -66,6 +74,7 @@ p="$2"
 shift 2
 
 n="1"
+cpus_per_task="16"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--num-processes)
@@ -76,6 +85,19 @@ while [[ $# -gt 0 ]]; do
       fi
       n="$2"
       shift 2
+      ;;
+    -c|--cpus-per-task)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for $1" >&2
+        usage >&2
+        exit 2
+      fi
+      cpus_per_task="$2"
+      shift 2
+      ;;
+    -c=*|--cpus-per-task=*)
+      cpus_per_task="${1#*=}"
+      shift
       ;;
     -h|--help)
       usage
@@ -94,7 +116,13 @@ if ! [[ "${n}" =~ ^[0-9]+$ ]] || [[ "${n}" -lt 1 ]]; then
   exit 2
 fi
 
+if ! [[ "${cpus_per_task}" =~ ^[0-9]+$ ]] || [[ "${cpus_per_task}" -lt 1 ]]; then
+  echo "cpus_per_task must be a positive integer, got: ${cpus_per_task}" >&2
+  exit 2
+fi
+
 echo "preproc_start_ts=$(date -Iseconds)"
+echo "preproc_cpus_per_task=${cpus_per_task}"
 echo "preproc_cmd=python -u /data/EECS-LITQ/fran_storage/code/fran/fran/run/preproc/analyze_resample.py -t ${t} -p ${p} -n ${n}"
 
 python -u /data/EECS-LITQ/fran_storage/code/fran/fran/run/preproc/analyze_resample.py -t "$t" -p "$p" -n "$n"

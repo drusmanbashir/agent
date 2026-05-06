@@ -1,0 +1,105 @@
+2026-05-04 interactive HPC checks for FRAN/totalseg RBD
+
+Purpose
+- Run these in interactive HPC shell if needed.
+- Paste outputs into a txt file and point me to it later.
+- I will use that to remove temporary solo-agent workarounds from tools/scripts.
+
+Context
+- Remote code root: /data/EECS-LITQ/fran_storage/code
+- Remote conf root: /data/EECS-LITQ/fran_storage/conf
+- Remote predictions cache target: /data/EECS-LITQ/fran_storage/predictions/totalseg_localiser/train
+- Suspected issue boundary: noninteractive env/shared-lib contamination, not basic `conda activate dl`
+
+1. Base env
+Command:
+module load miniforge
+conda activate dl
+echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+echo "CONDA_PREFIX=$CONDA_PREFIX"
+which python
+python -V
+
+Output:
+
+
+2. FRAN path exports
+Command:
+export FRAN_CONF=/data/EECS-LITQ/fran_storage/conf
+export PYTHONPATH=/data/EECS-LITQ/fran_storage/code/localiser:/data/EECS-LITQ/fran_storage/code/fran:/data/EECS-LITQ/fran_storage/code/utilz:/data/EECS-LITQ/fran_storage/code/label_analysis:${PYTHONPATH:-}
+echo "FRAN_CONF=$FRAN_CONF"
+echo "PYTHONPATH=$PYTHONPATH"
+
+Output:
+
+
+3. Direct python import in activated env
+Command:
+python -c "from fran.transforms.spatialtransforms import CropByYoloWithForegroundFallbackd; print('OK spatial')"
+python -c "from fran.preprocessing.regionbounded import RegionBoundedDataGenerator; print('OK regionbounded')"
+python -c "from fran.data.datasource import Datasource; print('OK datasource')"
+
+Output:
+
+
+4. `conda run` import check
+Command:
+conda run -n dl python -V
+conda run -n dl python -c "print(1)"
+conda run -n dl python -c "from fran.transforms.spatialtransforms import CropByYoloWithForegroundFallbackd; print('OK spatial run')"
+
+Output:
+
+
+5. `conda run` after clearing lib leak
+Command:
+unset LD_LIBRARY_PATH
+echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+conda run -n dl python -c "from fran.transforms.spatialtransforms import CropByYoloWithForegroundFallbackd; print('OK spatial run clean')"
+conda run -n dl python -c "from fran.preprocessing.regionbounded import RegionBoundedDataGenerator; print('OK regionbounded run clean')"
+
+Output:
+
+
+6. Localiser cache presence
+Command:
+find /data/EECS-LITQ/fran_storage/predictions/totalseg_localiser/train -maxdepth 1 -name "*.json" | wc -l
+find /data/EECS-LITQ/fran_storage/predictions/totalseg_localiser/train -maxdepth 1 -name "totalseg_s0003.json" -o -name "totalseg_s0006.json" -o -name "totalseg_s0009.json" -o -name "totalseg_s0010.json"
+
+Output:
+
+
+7. Dataset presence
+Command:
+find /data/EECS-LITQ/fran_storage/datasets/xnat_shadow/totalseg_short2/images -maxdepth 1 -name "*.nii.gz" | wc -l
+find /data/EECS-LITQ/fran_storage/datasets/xnat_shadow/totalseg_short2/lms -maxdepth 1 -name "*.nii.gz" | wc -l
+ls -1 /data/EECS-LITQ/fran_storage/datasets/xnat_shadow/totalseg_short2/images | sed -n '1,10p'
+
+Output:
+
+
+8. Registry/config spot-check
+Command:
+grep -n "totalseg_short2" /data/EECS-LITQ/fran_storage/conf/datasets.yaml
+python - <<'PY'
+from pathlib import Path
+import yaml
+cfg = yaml.safe_load(Path('/data/EECS-LITQ/fran_storage/conf/datasets.yaml').read_text())
+ds = cfg['datasets']['totalseg_short2'] if 'datasets' in cfg else cfg['totalseg_short2']
+print(ds)
+PY
+
+Output:
+
+
+9. Slurm shell env parity
+Command:
+srun -p compute -n 1 --mem=4G -t 00:10:00 bash -lc 'module load miniforge; conda activate dl; echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"; python -V; export FRAN_CONF=/data/EECS-LITQ/fran_storage/conf; export PYTHONPATH=/data/EECS-LITQ/fran_storage/code/localiser:/data/EECS-LITQ/fran_storage/code/fran:/data/EECS-LITQ/fran_storage/code/utilz:/data/EECS-LITQ/fran_storage/code/label_analysis:${PYTHONPATH:-}; python -c "from fran.transforms.spatialtransforms import CropByYoloWithForegroundFallbackd; print(\"OK srun\")"'
+
+Output:
+
+
+10. Notes
+- If any command fails, paste full traceback.
+- If `conda activate dl` works but `conda run -n dl ...` fails, include both outputs.
+- If `unset LD_LIBRARY_PATH` changes result, that is important.

@@ -1,0 +1,36 @@
+2026-05-04 start: inventory done. Scope: totalseg plan7 rbd -> CPU YOLO local test first, HPC later.
+2026-05-04 finding: plan7 mode=rbd datasources=totalseg spacing=(1,1,1) src_dims=[212,212,106] patch_size=[192,192,96] expand_by=10.
+2026-05-04 finding: local YOLO ckpts exist under /s/fran_storage/checkpoints/yolo/totalseg_localiser/.
+2026-05-04 finding: likely bug = Preprocessor.setup does not persist requested device, so regionbounded localiser sees devices=None and may auto-pick GPU.
+2026-05-04 code: persisted requested preprocess device in fran/preprocessing/preprocessor.py setup().
+2026-05-04 tests: fran/tests/preprocessing/test_regionbounded.py now covers device persistence + CPU forwarding into RBD localiser.
+2026-05-04 verify: pytest fran/tests/preprocessing/test_regionbounded.py -> 13 passed.
+2026-05-04 local fail: totalsegtmp + drli_short cannot run totalseg plan7 even before YOLO. Error: datasource totalseg not found in df; present ['drli'].
+2026-05-04 decision: treat drli_short as invalid config boundary for totalseg plan7. Pivot to totalseg_short for real local CPU RBD smoke, later totalseg_short2 for broader HPC test.
+2026-05-04 local fail: totalsegshortcpu first preproc hit KeyError mean_dataset_clipped. Cause: project global_properties incomplete because project bootstrap not finished.
+2026-05-04 fix: ran Project('totalsegshortcpu').maybe_store_projectwide_properties(multiprocess=False). global_properties now include mean_dataset_clipped/std_dataset_clipped.
+2026-05-04 doc: created SUGGESTIONS_rbd_hpc_workflow.md; will append dynamically as more hurdles surface.
+2026-05-04 local success: totalsegshortcpu plan7 completed end-to-end on Sinclair.
+2026-05-04 local timing: RBD localiser stage on CPU for 4 imgs -> nifti->jpg ~5s, jpg inference ~2-3s. Well under abort threshold (~15 min / 100 imgs).
+2026-05-04 local fix: RBD worker switched to CropByYoloWithForegroundFallbackd. Re-run on totalsegshortcpu preserved fg for previously failing case totalseg_s0003.
+2026-05-04 audit: preprocessing_log now shows CropByYoloFallback verified_fg_preserved=True instead of persisted fg loss.
+2026-05-04 cli: added scripts/clone_dataset_subset.py. Purpose: deterministic copy of first N matched image/lm pairs into new short dataset folder.
+2026-05-04 storage: moved drli_short, lidc_short, kits23_short, totalseg_short payloads to /media/UB/datasets/tests and replaced old /s paths with symlinks.
+2026-05-04 registry: datasets.yaml now points those short datasets to /media/UB. datasets_hpc.yaml gained totalseg_short2.
+2026-05-04 dataset: created /media/UB/datasets/tests/totalseg_short2 with 64 image/lm pairs via scripts/clone_dataset_subset.py.
+2026-05-04 ops: created HPC_INTERACTIVE_CHECKS_2026-05-04.txt with exact interactive shell commands + output placeholders for later txt handoff and cleanup of temporary workarounds.
+2026-05-04 docs: created agent/hpc/README.md. Note added: ~/code mirror repos on HPC are disposable copies; Sinclair is source of truth.
+2026-05-04 cache: uploaded local totalseg bbox JSON cache to HPC via agent/hpc/cli/rbd_json_upload.sh. Verified remote cache coverage for totalseg_short2 = 64/64.
+2026-05-04 naming: renamed remaining tonight-surface totseg* references/files to totalseg* locally and on HPC.
+2026-05-04 hpc fix: synced updated fran/transforms/spatialtransforms.py to HPC after stale remote file lacked tr alias.
+2026-05-04 hpc fix: synced updated localiser/inference/{base.py,__init__.py,localiserinferer.py} to HPC; remote import chain moved past root_resolver and LocaliserInferer drift.
+2026-05-04 hpc fix: mirrored shared repos from Sinclair to HPC for current preproc path (fran/localiser/utilz) after repeated stale-file import failures; note hpc_xfer over-copied .git/cache trees, suggestion logged separately.
+2026-05-04 verify: remote import smoke passed -> import fran.run.preproc.analyze_resample as m.
+2026-05-04 submit: resubmitted HPC preproc-only job for totalsegtmp plan7: job_id=9425389.
+2026-05-04 verify: job 9425389 completed resample stage and advanced through downstream preprocessing stages on HPC without new writes under /data/EECS-LITQ/fran_storage/predictions/totalseg_localiser/train since preproc_start_ts=2026-05-04T11:31:59+01:00 (RECENT_COUNT 0). Strong evidence RBD used cached JSONs and did not run HPC YOLO inference.
+2026-05-04 status: job 9425389 still running at last poll (elapsed ~33m40s). Remaining runtime appears to be downstream preprocessing, not YOLO cache generation.
+2026-05-04 update: user requested abort last process, refresh HPC, then submit fresh preproc for project totalseg plan7.
+2026-05-04 status: by time cancel check ran, job 9425389 had already completed successfully (sacct: COMPLETED, elapsed 00:40:26, exit 0:0).
+2026-05-04 refresh: did safer manual HPC refresh equivalent instead of canonical refresh.sh because refresh.sh would auto-commit and push dirty local repos to origin. Mirrored fran/localiser/utilz/label_analysis from Sinclair to HPC with excludes; refreshed datasets/config/best_runs/path-mapping conf files; reran rbd_json_upload.sh.
+2026-05-04 submit: fresh HPC preproc job for project totalseg plan7 submitted via hpc_submit_poll_fetch.sh: job_id=9425707.
+2026-05-04 status: first poll for 9425707 -> RUNNING on srm2.
