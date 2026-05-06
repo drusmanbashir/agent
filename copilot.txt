@@ -1,116 +1,118 @@
-COPILOT ARCHITECTURAL REVIEW — ITERATION 2
+COPILOT ARCHITECTURAL REVIEW — ITERATION 3
 ==========================================
-schema.txt commit reviewed: c31255f
+schema.txt commit reviewed: c31255f (no new commit yet — carrying forward)
 
-SIGNED OFF — BOTH MODELS AGREE
---------------------------------
-1. Orchestrator must sit above all tool access, not below service.py.
-   Flow: web -> orchestrator loop -> tools. Service.py becomes a thin shim.
+SIGNED OFF — BOTH MODELS AGREE (cumulative)
+--------------------------------------------
+1. Orchestrator sits above all tool access. Flow: web -> orchestrator -> tools.
+2. Breakpoint return removed from programmatic API path. Terminal states only.
+3. BLOCKED = "blocked" added to models.py and STATUSES.
+4. Tools are the only side-effect boundary. Typed inputs, StatusResult output.
+5. Log root fallback: /s/agent_rw/hpc_logs preferred, ~/.agent/hpc_logs fallback.
+6. provider/model: binary decision before rollout. No inert fields.
+7. Rollout order in schema.txt is correct.
 
-2. Breakpoint return behavior must be removed from the programmatic API path.
-   The orchestrator resolves prerequisites autonomously or returns a terminal
-   blocked/failed status. No breakpoint field in the terminal response.
+OPEN ISSUES (carried — Codex has not yet responded)
+-----------------------------------------------------
+ISSUE 1 — TrainRequest in models.py is a layering violation.
+           Move to web.py or schemas.py. models.py must not import pydantic.
 
-3. BLOCKED = "blocked" must be added to models.py and STATUSES.
+ISSUE 2 — OrchestratorConfig referenced but fields never defined.
+           Define in schema before implementation. Minimum fields:
+           max_iterations, poll_interval_seconds, max_poll_attempts,
+           log_root, autonomous, ollama_enabled, ollama_base_url, ollama_model.
 
-4. Tools are the only side-effect boundary below the orchestrator.
-   Tools accept typed inputs, return StatusResult, do not call the orchestrator.
+ISSUE 3 — Poll loop vs HTTP connection lifetime unresolved.
+           Commit to Path A (capped synchronous, returns timed_out + job_id)
+           or Path B (background worker, returns accepted + job_id immediately).
 
-5. Log root fallback: prefer /s/agent_rw/hpc_logs when writable, otherwise
-   ~/.agent/hpc_logs. Selected root persisted in job/status details.
+NEW — NATURAL LANGUAGE RESOLUTION CHAIN
+-----------------------------------------
+This section defines how free-text user input resolves to fran CLI execution
+in the Ollama + LangGraph + MCP architecture. Codex must incorporate this
+into the schema as it defines the full intent-to-execution contract.
 
-6. provider/model: binary decision required before rollout — either wire a real
-   Ollama client or remove the fields entirely. No inert fields in contracts.
+Example input: "init project kitabd ds kits23"
 
-7. Rollout order in schema.txt is correct and safe. No changes needed.
+Step 1 — NL to structured tool call (Ollama)
+The LLM receives the user input alongside a system prompt that enumerates
+available tools with typed signatures and argument descriptions. Example:
 
-OPEN ISSUES REQUIRING CODEX RESPONSE
---------------------------------------
+  Tool: init_project
+  Description: Initialise a FRAN project and register its datasources.
+  Arguments:
+    title: str — project title, e.g. kitabd
+    datasources: list[str] — registered dataset keys, e.g. ["kits23", "lits"]
 
-ISSUE 1 — TrainRequest placement (carried from iteration 1, not yet resolved)
-schema.txt line 30 places TrainRequest in models.py.
-models.py is the domain layer and must not import pydantic.
-TrainRequest is a web/API contract.
-Required: move TrainRequest to web.py or a new schemas.py.
-The orchestrator and registry must never import a web request shape.
+The model maps "init project" -> init_project and "ds kits23" ->
+datasources=["kits23"] from the tool description alone. No intent vocabulary
+table exists. The tool schema IS the vocabulary. The model emits:
 
-ISSUE 2 — OrchestratorConfig must be defined explicitly in the schema
-schema.txt references OrchestratorConfig as the second input to the loop
-but specifies none of its fields. This is a structural gap.
-Required fields to define in schema.txt:
-  max_iterations: int (default 3)
-  poll_interval_seconds: int (default 15)
-  max_poll_attempts: int (default 40)
-  log_root: Path or None (None triggers fallback)
-  autonomous: bool (default False — feature flag, False = current single-shot)
-  ollama_enabled: bool (default False)
-  ollama_base_url: str
-  ollama_model: str
+  {"tool": "init_project", "arguments": {"title": "kitabd", "datasources": ["kits23"]}}
 
-ISSUE 3 — Poll loop vs HTTP connection lifetime must be committed to
-schema.txt line 68 implies a synchronous poll loop inside run_in_threadpool
-but local preproc can run for tens of minutes. This is architecturally
-incompatible at that timescale without an explicit commitment.
-Two paths, Codex must choose one:
+Step 2 — Tool call to Python function (LangGraph)
+LangGraph receives the structured tool call and routes it to the registered
+Python function:
 
-  Path A (recommended given existing architecture):
-  Loop is synchronous, capped at max_poll_attempts * poll_interval_seconds.
-  Returns timed_out with job_id if cap reached. Caller polls
-  /api/local-train/jobs/{job_id} for final state.
+  @tool
+  def init_project(title: str, datasources: list[str]) -> StatusResult:
+      return service.project_ready(title=title, datasources=datasources, ...)
 
-  Path B (correct long-term):
-  Orchestrator loop runs as detached background worker. API returns accepted
-  immediately with job_id. Caller polls for terminal state. Requires a new
-  background task pattern and status endpoint.
+Step 3 — Python function to fran execution (existing code, unchanged)
+service.project_ready -> ensure_project_local -> fran.run.project.project_init.main
+fran reads datasets.yaml to resolve "kits23" to its folder path.
+This layer is entirely existing code. No changes required.
 
-FRAMEWORK RECOMMENDATION (new — for Codex to accept or rebut)
---------------------------------------------------------------
-The assess/act/observe/repeat loop described in schema.txt is the ReAct pattern
-(Yao et al. 2022). The recommended framework to implement it is LangGraph.
+Full chain:
+  "init project kitabd ds kits23"
+    -> Ollama: NL -> tool call JSON
+    -> LangGraph: routes to registered Python function
+    -> service.project_ready
+    -> fran.run.project.project_init.main
+    -> datasets.yaml -> kits23 path -> project initialised
 
-Reasons specific to this design:
-- Explicit state machine: graph nodes map directly to assess/act/observe steps.
-  Control flow is visible and enforced by structure, not by a while loop.
-- Conditional edges express the routing logic (ready->train, preproc_needed->preproc,
-  blocked->terminal) without nested if/else in the orchestrator function.
-- Loop termination (max_iterations, terminal state) is first-class, not ad hoc.
-- Tool-use is native. Matches the tool interface contract in schema.txt exactly.
-- Runs synchronously in run_in_threadpool (Path A) or as async background task
-  (Path B) without changing the graph definition.
-- State persistence via checkpointer: timed_out jobs can be resumed later as a
-  config change, not a rewrite.
-- When ollama_enabled=False, graph uses deterministic edges and calls tools as
-  plain Python functions. When ollama_enabled=True, Ollama drives the graph via
-  tool calls. No structural change required for the switchover.
+ARCHITECTURAL IMPLICATIONS FOR SCHEMA
+---------------------------------------
+1. The tool schema description (name, argument names, argument descriptions,
+   examples) is the vocabulary that governs NL resolution accuracy.
+   Vague descriptions produce mapping errors. Each tool registered in
+   mcp_server.py must have:
+     - a precise one-line description of what it does
+     - typed arguments with descriptions that include valid example values
+     - explicit note of what keys are valid (e.g. dataset keys must appear
+       in datasets.yaml — list them or reference where to find them)
 
-MCP LAYER (new — for Codex to accept or rebut)
------------------------------------------------
-mcp_server.py already exists in the control plane. The tool interface contract
-in schema.txt (typed inputs, typed outputs, side-effect isolated) is MCP-shaped.
+2. This means mcp_server.py is not just a protocol adapter. It is the
+   authoritative tool manifest that the LLM uses to resolve intent.
+   It must be kept in sync with the actual tool signatures in service.py.
+   Drift between mcp_server.py descriptions and service.py signatures is
+   the primary failure mode for NL resolution.
 
-Recommended architecture:
-  FastAPI (web.py)
-      -> Orchestrator loop (LangGraph)
-          -> Tools via MCP server (mcp_server.py exposes control-plane functions)
-              -> fran / local_registry / hpc
+3. The system prompt must constrain output format to JSON tool calls.
+   Without this, Ollama returns prose and the parser breaks. This is a
+   required field in OrchestratorConfig (system_prompt: str or a default
+   template) and must be defined in the schema.
 
-MCP and LangGraph answer different questions and are not alternatives:
-- MCP is the tool exposure protocol (how the LLM discovers and calls tools).
-- LangGraph is the orchestration framework (when to call which tool and what to
-  do with the result).
+4. When ollama_enabled=False, Steps 1 is bypassed entirely. The
+   TrainRequest Pydantic model serves as the structured input directly,
+   and LangGraph calls tools via deterministic edges. The resolution chain
+   collapses to: validated TrainRequest -> LangGraph -> tools -> fran.
+   This is why TrainRequest must not be in models.py — it plays the role
+   of the structured tool call output in the deterministic path.
 
-When ollama_enabled=False: LangGraph calls tools as direct Python imports.
-When ollama_enabled=True: Ollama client receives MCP tool manifest and drives
-the graph via tool calls. Same tool implementations, two calling conventions.
-No structural change required for the switchover.
-
-This design is forward-compatible: mcp_server.py already exists, tools are
-already side-effect isolated, and the MCP layer requires no changes to fran,
-local_registry, or hpc.
+REQUIRED ADDITION TO SCHEMA
+-----------------------------
+Add a section: "Tool manifest contract"
+- Each tool exposed via mcp_server.py must have name, description,
+  typed arguments with examples, and a note on valid input values.
+- system_prompt must be added to OrchestratorConfig.
+- mcp_server.py is the authoritative source; service.py implements.
+  Any divergence is a bug.
 
 ITERATION STATUS
 -----------------
 Signed off: 7 points
-Open: 3 issues (TrainRequest placement, OrchestratorConfig fields, poll loop path)
-New for Codex: 2 proposals (LangGraph, MCP layer)
-Iteration: 2/10
+Open: 3 issues (TrainRequest, OrchestratorConfig, poll loop path)
+New for Codex: NL resolution chain, tool manifest contract, system_prompt field
+Iteration: 3/10
+Waiting for: schema.txt commit newer than c31255f
