@@ -17,6 +17,7 @@ FRAN_REPO_ROOT = Path("/home/ub/code/fran")
 LOCAL_TRAIN_PYTHON = Path("/home/ub/mambaforge/envs/dl/bin/python")
 LOCAL_TRAIN_ENTRYPOINT = Path("/home/ub/code/fran/fran/run/training/train_retry.py")
 LOCAL_LOG_ROOT = Path("/s/agent_rw/hpc_logs")
+LOCAL_LOG_ROOT_FALLBACK = Path.home() / ".agent/hpc_logs"
 LOCAL_ORCH_PROVIDER = "ollama"
 LOCAL_ORCH_MODEL = ""
 LOCAL_ORCH_ESCALATION_TARGET = ""
@@ -37,8 +38,23 @@ def local_job_id() -> str:
     return f"local-{stamp}-{uuid.uuid4().hex[:8]}"
 
 
+def _preferred_log_root(primary: Path, fallback: Path) -> Path:
+    selected = primary.expanduser()
+    probe = selected if selected.exists() else selected.parent
+    if probe.exists() and os.access(probe, os.W_OK):
+        return selected
+    return fallback.expanduser()
+
+
 def logs_root(root: Path | None = None) -> Path:
-    return (root or LOCAL_LOG_ROOT).expanduser()
+    if root is not None:
+        resolved = root.expanduser()
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
+
+    selected = _preferred_log_root(LOCAL_LOG_ROOT, LOCAL_LOG_ROOT_FALLBACK)
+    selected.mkdir(parents=True, exist_ok=True)
+    return selected
 
 
 def job_registry(root: Path | None = None) -> JobRegistry:
@@ -160,6 +176,8 @@ def local_job_summary(job: JobRecord) -> dict[str, object]:
         "job_dir": str(job.job_dir),
         "stdout": str(job.stdout_path),
         "stderr": str(job.stderr_path),
+        "log_root": str(job.root),
+        "registry_path": str(job.root / "job_registry.tsv"),
     }
 
 
@@ -178,6 +196,7 @@ def default_orchestrator_state() -> dict[str, object]:
         "provider": LOCAL_ORCH_PROVIDER,
         "model": LOCAL_ORCH_MODEL,
         "escalation_target": LOCAL_ORCH_ESCALATION_TARGET,
+        "log_root": str(logs_root()),
         "updated_at": datetime.now().astimezone().isoformat(),
     }
 
@@ -546,12 +565,16 @@ def poll_local_job(job_id: str, root: Path | None = None) -> dict[str, object]:
             "job_id": job_id,
             "status": FAILED,
             "message": f"Job {job_id} was not found in {registry.path}.",
+            "log_root": str(registry.root),
+            "registry_path": str(registry.path),
         }
     synced = _sync_local_job(job)
     registry.update_polled(job_id, datetime.now().astimezone().isoformat())
     refreshed = registry.find(job_id)
     status = classify_local_job(refreshed)
     status["job"] = local_job_summary(refreshed)
+    status["log_root"] = str(registry.root)
+    status["registry_path"] = str(registry.path)
     return status
 
 
@@ -570,6 +593,8 @@ def build_local_job_crash_packet(job_id: str, tail_lines: int = 200, root: Path 
             "job_id": job_id,
             "status": FAILED,
             "message": f"Job {job_id} was not found in {registry.path}.",
+            "log_root": str(registry.root),
+            "registry_path": str(registry.path),
         }
     refreshed = _sync_local_job(job)
     status = classify_local_job(refreshed)
@@ -585,6 +610,8 @@ def build_local_job_crash_packet(job_id: str, tail_lines: int = 200, root: Path 
         "job_meta": job_meta,
         "worker_meta": worker_meta,
         "orchestrator": orch,
+        "log_root": str(refreshed.root),
+        "registry_path": str(registry.path),
         "stdout_tail": _tail_lines(refreshed.stdout_path, tail_lines),
         "stderr_tail": _tail_lines(refreshed.stderr_path, tail_lines),
         "note_context": note_path.read_text(encoding="utf-8") if note_path.exists() else "",

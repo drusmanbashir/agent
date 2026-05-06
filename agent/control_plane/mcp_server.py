@@ -76,6 +76,7 @@ def project_ready(
 def orchestrator_train_request(
     project_title: str,
     plan: int,
+    mode: Literal["local", "hpc"] = "local",
     devices: str = "1",
     learning_rate: float | None = None,
     batch_size: Annotated[int, Field(ge=1)] = 4,
@@ -98,11 +99,12 @@ def orchestrator_train_request(
     model: str = "",
     escalation_target: str = "",
 ) -> CallToolResult:
-    """Resolve a FRAN train intent into a workflow breakpoint or submit local train when prerequisites are ready."""
+    """Resolve a FRAN train intent end-to-end: repair prerequisites briefly, then submit train or return a terminal blocked/timed_out status."""
     return _tool_result(
         orchestrator_train_request_service(
             project_title=project_title,
             plan=plan,
+            mode=mode,
             devices=devices,
             learning_rate=learning_rate,
             batch_size=batch_size,

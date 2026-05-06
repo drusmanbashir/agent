@@ -5,10 +5,13 @@ import sys
 import time
 from pathlib import Path
 
+import agent.control_plane.local_registry as local_registry
 from agent.control_plane.local_registry import (
+    LOCAL_LOG_ROOT_FALLBACK,
     _submit_local_train_retry_job,
     build_local_job_crash_packet,
     job_registry,
+    logs_root,
     poll_local_job,
 )
 
@@ -63,6 +66,7 @@ def test_local_train_retry_submission_and_completion(tmp_path: Path, monkeypatch
 
     payload = _wait_for_terminal(job.job_id, logs_root)
     assert payload["status"] == "completed"
+    assert payload["job"]["log_root"] == str(logs_root)
 
     registry_job = job_registry(logs_root).find(job.job_id)
     assert registry_job is not None
@@ -104,7 +108,18 @@ def test_local_train_retry_failure_crash_packet(tmp_path: Path, monkeypatch) -> 
 
     crash_packet = build_local_job_crash_packet(job.job_id, root=logs_root)
     assert crash_packet["status"] == "failed"
+    assert crash_packet["log_root"] == str(logs_root)
     assert crash_packet["orchestrator"]["provider"] == "ollama"
     assert crash_packet["orchestrator"]["model"] == "mistral"
     assert crash_packet["orchestrator"]["escalation_target"] == "gpu-owner"
     assert "simulated failure" in "\n".join(crash_packet["stderr_tail"])
+
+
+def test_logs_root_falls_back_when_primary_unavailable(monkeypatch, tmp_path: Path) -> None:
+    fallback = tmp_path / "fallback"
+    monkeypatch.setattr(local_registry, "LOCAL_LOG_ROOT_FALLBACK", fallback)
+    monkeypatch.setattr(local_registry, "_preferred_log_root", lambda primary, fallback_path: fallback_path)
+
+    resolved = logs_root()
+
+    assert resolved == fallback

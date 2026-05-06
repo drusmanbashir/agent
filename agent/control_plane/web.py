@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pathlib import Path
-
 from fastapi import Body, FastAPI, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
@@ -11,6 +9,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from agent.control_plane.hpc import dashboard_context
+from agent.control_plane.models import JobInfo, StatusResult
+from agent.control_plane.schemas import TrainRequest
 from agent.control_plane.service import (
     datasource_ready,
     get_project_plans,
@@ -79,6 +79,47 @@ def base_context(request: Request) -> dict:
     }
 
 
+def train_status_result(payload: dict[str, object]) -> dict[str, object]:
+    details = {}
+    if "details" in payload and payload["details"] is not None:
+        details = dict(payload["details"])
+    if "decision" in payload:
+        details["decision"] = payload["decision"]
+    if "breakpoint" in payload and payload["breakpoint"] is not None:
+        details["breakpoint"] = payload["breakpoint"]
+
+    job = None
+    if "job" in payload and payload["job"] is not None:
+        job_payload = payload["job"]
+        job = JobInfo(
+            job_id=str(job_payload["job_id"]),
+            command=list(job_payload["command"]),
+            job_dir=job_payload["job_dir"],
+            state=job_payload["state"],
+            dashboard_url=job_payload["dashboard_url"],
+        )
+
+    next_action = None
+    if "next_action" in payload and payload["next_action"] is not None:
+        next_action = str(payload["next_action"])
+    elif "breakpoint" in payload and payload["breakpoint"] is not None:
+        next_action = str(payload["breakpoint"])
+
+    result = StatusResult(
+        target=str(payload["target"]),
+        name=str(payload["name"]),
+        mode=str(payload["mode"]),
+        status=str(payload["status"]),
+        message=str(payload["message"]),
+        details=details,
+        job=job,
+        error_code=str(payload["error_code"]) if "error_code" in payload and payload["error_code"] is not None else None,
+        next_action=next_action,
+        observed_at=str(payload["observed_at"]) if "observed_at" in payload and payload["observed_at"] is not None else None,
+    )
+    return result.to_dict()
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     context = await run_in_threadpool(base_context, request)
@@ -134,25 +175,9 @@ async def project_preproc_api(
 
 
 @app.post("/api/orchestrator/requests/train")
-async def orchestrator_train_request_api(
-    project: str = Body(...),
-    plan_id: int = Body(...),
-    fold: int = Body(0),
-    train_indices: int = Body(24),
-    val_every_n_epochs: int = Body(5),
-    learning_rate: str = Body("0.0003"),
-    run_name: str = Body("none"),
-):
-    return await run_in_threadpool(
-        orchestrator_train_request,
-        project_title=project,
-        plan=plan_id,
-        fold=fold,
-        train_indices=train_indices,
-        val_every_n_epochs=val_every_n_epochs,
-        learning_rate=float(learning_rate),
-        run_name=None if run_name in {"", "none", "null"} else run_name,
-    )
+async def orchestrator_train_request_api(request: TrainRequest):
+    payload = await run_in_threadpool(orchestrator_train_request, **request.service_kwargs())
+    return train_status_result(payload)
 
 
 @app.get("/api/local-train/jobs")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from agent.control_plane.hpc import (
     submit_datasource,
     submit_preproc,
     submit_project,
+    submit_train as submit_hpc_train,
 )
 from agent.control_plane.local_registry import (
     build_local_job_crash_packet,
@@ -26,7 +28,7 @@ from agent.control_plane.local_registry import (
     record_orchestrator_message,
     submit_local_train_retry,
 )
-from agent.control_plane.models import FAILED, RUNNING, SUBMITTED, StatusResult
+from agent.control_plane.models import BLOCKED, FAILED, READY, RUNNING, SUBMITTED, TIMED_OUT, StatusResult
 from agent.control_plane.ollama_orchestrator import decide_train_workflow
 from fran.run.project.project_status import (
     confirm_plan_status,
@@ -465,7 +467,7 @@ def train_plan_ready(project_title: str, plan: int, mode: str = "local") -> dict
             "target": "train",
             "name": project_title,
             "mode": mode,
-            "status": "blocked",
+            "status": BLOCKED,
             "breakpoint": "project",
             "message": f"Project {project_title} is not registered; project readiness is required before train.",
             "details": {"project": project_title, "plan": plan, "dashboard": dashboard_context()},
@@ -478,7 +480,7 @@ def train_plan_ready(project_title: str, plan: int, mode: str = "local") -> dict
             "target": "train",
             "name": project_title,
             "mode": mode,
-            "status": "ready",
+            "status": READY,
             "breakpoint": None,
             "message": f"Project {project_title} plan {plan} has source and plan datasets ready.",
             "details": {"project": project_payload, "plan": plan_payload, "dashboard": dashboard_context()},
@@ -487,16 +489,36 @@ def train_plan_ready(project_title: str, plan: int, mode: str = "local") -> dict
         "target": "train",
         "name": project_title,
         "mode": mode,
-        "status": "blocked",
+        "status": BLOCKED,
         "breakpoint": "preproc",
         "message": f"Project {project_title} plan {plan} needs preprocessing before train.",
         "details": {"project": project_payload, "plan": plan_payload, "dashboard": dashboard_context()},
     }
 
 
+def observe_train_plan_readiness(project_title: str, plan: int, attempts: int = 2, delay_seconds: float = 1.0) -> tuple[dict[str, object], list[dict[str, object]]]:
+    observations = []
+    readiness = train_plan_ready(project_title=project_title, plan=plan)
+    for attempt in range(1, attempts + 1):
+        observations.append(
+            {
+                "attempt": attempt,
+                "status": readiness["status"],
+                "message": readiness["message"],
+            }
+        )
+        if readiness["status"] == READY:
+            return readiness, observations
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+            readiness = train_plan_ready(project_title=project_title, plan=plan)
+    return readiness, observations
+
+
 def orchestrator_train_request(
     project_title: str,
     plan: int,
+    mode: str = "local",
     devices: str = "1",
     learning_rate: float | None = None,
     batch_size: int = 4,
@@ -519,7 +541,7 @@ def orchestrator_train_request(
     model: str = "",
     escalation_target: str = "",
 ) -> dict[str, object]:
-    readiness = train_plan_ready(project_title=project_title, plan=plan)
+    readiness = train_plan_ready(project_title=project_title, plan=plan, mode=mode)
     decision = decide_train_workflow(
         project_title=project_title,
         plan=plan,
@@ -528,17 +550,91 @@ def orchestrator_train_request(
         model=model,
     )
     record_orchestrator_message(message=decision["message"], mode="train_intent")
-    if decision["action"] == "return_breakpoint":
-        return {
-            "target": "train",
-            "name": project_title,
-            "mode": "local",
-            "status": "blocked",
-            "message": decision["message"],
-            "decision": decision,
-            "breakpoint": decision["breakpoint"],
-            "details": {"plan": plan, "dashboard": dashboard_context()},
-        }
+    observed_readiness = readiness
+    observations: list[dict[str, object]] = []
+
+    if decision["action"] == "return_blocked":
+        next_action = "project" if readiness.get("breakpoint") == "project" else "review"
+        return StatusResult(
+            target="train",
+            name=project_title,
+            mode=mode,
+            status=BLOCKED,
+            message=readiness["message"],
+            details={
+                "plan": plan,
+                "dashboard": dashboard_context(),
+                "readiness": readiness,
+                "decision": decision,
+            },
+            next_action=next_action,
+        ).to_dict()
+
+    if decision["action"] == "submit_preproc":
+        preproc_job = preproc_ready(project_name=project_title, plan_id=plan, mode=mode)
+        observed_readiness, observations = observe_train_plan_readiness(project_title=project_title, plan=plan)
+        if observed_readiness["status"] != READY:
+            next_action = "poll" if mode == "hpc" else "preproc"
+            return StatusResult(
+                target="train",
+                name=project_title,
+                mode=mode,
+                status=TIMED_OUT,
+                message="Timed out waiting for preprocessing readiness; preproc was submitted and should be polled via returned job details.",
+                details={
+                    "plan": plan,
+                    "dashboard": dashboard_context(),
+                    "readiness": observed_readiness,
+                    "decision": decision,
+                    "observations": observations,
+                    "preproc_job": preproc_job,
+                },
+                next_action=next_action,
+            ).to_dict()
+
+    if mode == "hpc":
+        if fold is None or learning_rate is None or train_indices is None:
+            return StatusResult(
+                target="train",
+                name=project_title,
+                mode=mode,
+                status=BLOCKED,
+                message="HPC train submission requires fold, learning_rate, and train_indices.",
+                details={
+                    "plan": plan,
+                    "dashboard": dashboard_context(),
+                    "readiness": observed_readiness,
+                    "decision": decision,
+                },
+                next_action="request_complete_args",
+            ).to_dict()
+        job = submit_hpc_train(
+            project_title=project_title,
+            plan=plan,
+            fold=fold,
+            learning_rate=learning_rate,
+            train_indices=train_indices,
+            val_every_n_epochs=val_every_n_epochs,
+            run_name=run_name,
+            epochs=epochs,
+            wandb=wandb,
+            bsf=bsf,
+        )
+        return StatusResult(
+            target="train",
+            name=project_title,
+            mode=mode,
+            status=SUBMITTED,
+            message="Orchestrator accepted train intent and submitted HPC train.",
+            details={
+                "plan": plan,
+                "dashboard": dashboard_context(),
+                "decision": decision,
+                "readiness": observed_readiness,
+            },
+            job=job,
+        ).to_dict()
+
     payload = train_retry_local(
         project_title=project_title,
         plan=plan,
@@ -564,9 +660,12 @@ def orchestrator_train_request(
         model=model,
         escalation_target=escalation_target,
     )
-    payload["decision"] = decision
-    payload["job_id"] = payload["job"]["job_id"]
     payload["message"] = "Orchestrator accepted train intent and submitted local train."
+    payload["details"]["decision"] = decision
+    payload["details"]["readiness"] = observed_readiness
+    if observations:
+        payload["details"]["observations"] = observations
+    payload["job_id"] = payload["job"]["job_id"]
     return payload
 
 

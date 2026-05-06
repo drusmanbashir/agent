@@ -12,8 +12,13 @@ HPC_SUBMIT = Path("/home/ub/code/agent/agent/hpc/cli/hpc_submit_poll_fetch.sh")
 HPC_DATASOURCE_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/datasource.sh")
 HPC_PREPROC_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/preproc.sh")
 HPC_PROJECT_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/project_init.sh")
+HPC_TRAIN_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/train.sh")
 HPC_DASH = Path("/home/ub/code/agent/agent/hpc/cli/hdash")
 HPC_REGISTRY = Path("/s/agent_rw/hpc_logs/job_registry.tsv")
+
+
+def hpc_log_root() -> Path:
+    return HPC_REGISTRY.parent
 
 
 def dashboard_context() -> dict[str, str | None]:
@@ -30,6 +35,7 @@ def dashboard_context() -> dict[str, str | None]:
         "status_command": f"{HPC_DASH} status",
         "url_command": f"{HPC_DASH} url",
         "url": url,
+        "log_root": str(hpc_log_root()),
     }
 
 
@@ -93,6 +99,35 @@ def submit_preproc(project_name: str, plan_id: int) -> JobInfo:
     return _submit(command)
 
 
+def submit_train(
+    project_title: str,
+    plan: int,
+    fold: int,
+    learning_rate: float,
+    train_indices: int,
+    val_every_n_epochs: int,
+    run_name: str | None,
+    epochs: int = 500,
+    wandb: bool = True,
+    bsf: bool = True,
+) -> JobInfo:
+    command = [
+        str(HPC_SUBMIT),
+        str(HPC_TRAIN_WRAPPER),
+        project_title,
+        str(plan),
+        str(fold),
+        str(learning_rate),
+        str(train_indices),
+        str(val_every_n_epochs),
+        run_name or "none",
+        f"epochs={epochs}",
+        f"wandb={str(wandb).lower()}",
+        f"bsf={str(bsf).lower()}",
+    ]
+    return _submit(command)
+
+
 def registry_row(job_id: str) -> dict[str, str] | None:
     if not HPC_REGISTRY.exists():
         return None
@@ -123,16 +158,18 @@ def classify_registry_job(job_id: str) -> dict[str, str]:
             "job_id": job_id,
             "status": FAILED,
             "message": f"Job {job_id} was not found in {HPC_REGISTRY}.",
+            "log_root": str(hpc_log_root()),
         }
     raw_state = row["state"].strip()
     if raw_state in {"", "-", "PENDING", "PD", "CONFIGURING", "CF"}:
-        return {"job_id": job_id, "status": SUBMITTED, "message": "Job is submitted and waiting."}
+        return {"job_id": job_id, "status": SUBMITTED, "message": "Job is submitted and waiting.", "log_root": str(hpc_log_root())}
     if raw_state in {"RUNNING", "R", "COMPLETING", "CG"}:
-        return {"job_id": job_id, "status": RUNNING, "message": "Job is running."}
+        return {"job_id": job_id, "status": RUNNING, "message": "Job is running.", "log_root": str(hpc_log_root())}
     if raw_state in {"COMPLETED", "CD"} and row["exit_code"] in {"", "0", "0:0"}:
-        return {"job_id": job_id, "status": "completed", "message": "Job completed successfully."}
+        return {"job_id": job_id, "status": "completed", "message": "Job completed successfully.", "log_root": str(hpc_log_root())}
     return {
         "job_id": job_id,
         "status": FAILED,
         "message": f"Job finished in state {raw_state or '-'} with exit {row['exit_code'] or '-'}.",
+        "log_root": str(hpc_log_root()),
     }

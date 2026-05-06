@@ -2,7 +2,32 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from agent.control_plane.models import BLOCKED, STATUSES, StatusResult, TIMED_OUT
 import agent.control_plane.web as web
+
+
+def test_status_result_to_dict_omits_none_fields() -> None:
+    payload = StatusResult(
+        target="train",
+        name="kits23",
+        mode="local",
+        status=TIMED_OUT,
+        message="Timed out waiting for prerequisite completion.",
+        details={"poll_url": "/api/local-train/jobs/local-123"},
+        next_action="poll",
+    ).to_dict()
+
+    assert payload == {
+        "target": "train",
+        "name": "kits23",
+        "mode": "local",
+        "status": "timed_out",
+        "message": "Timed out waiting for prerequisite completion.",
+        "details": {"poll_url": "/api/local-train/jobs/local-123"},
+        "next_action": "poll",
+    }
+    assert BLOCKED in STATUSES
+    assert TIMED_OUT in STATUSES
 
 
 def test_base_context_includes_local_train_defaults(monkeypatch) -> None:
@@ -100,6 +125,7 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
             "status": "blocked",
             "breakpoint": "preproc",
             "message": "Project needs preprocessing before train.",
+            "details": {"plan_id": kwargs["plan"]},
         }
 
     monkeypatch.setattr(web, "orchestrator_train_request", fake_orchestrator_train_request)
@@ -110,6 +136,7 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
         json={
             "project": "kits23",
             "plan_id": 3,
+            "mode": "hpc",
             "fold": 0,
             "train_indices": 24,
             "val_every_n_epochs": 5,
@@ -119,6 +146,17 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["breakpoint"] == "preproc"
+    assert response.json() == {
+        "target": "train",
+        "name": "kits23",
+        "mode": "local",
+        "status": "blocked",
+        "message": "Project needs preprocessing before train.",
+        "details": {"plan_id": 3, "breakpoint": "preproc"},
+        "next_action": "preproc",
+    }
     assert calls[0]["project_title"] == "kits23"
     assert calls[0]["plan"] == 3
+    assert calls[0]["mode"] == "hpc"
+    assert calls[0]["learning_rate"] == 0.0003
+    assert calls[0]["run_name"] is None
