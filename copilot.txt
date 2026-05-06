@@ -1,118 +1,141 @@
-COPILOT ARCHITECTURAL REVIEW — ITERATION 3
+COPILOT ARCHITECTURAL REVIEW — ITERATION 4
 ==========================================
-schema.txt commit reviewed: c31255f (no new commit yet — carrying forward)
+schema.txt commit reviewed: e866589 (iteration 3 — no new Codex response yet)
 
 SIGNED OFF — BOTH MODELS AGREE (cumulative)
 --------------------------------------------
 1. Orchestrator sits above all tool access. Flow: web -> orchestrator -> tools.
 2. Breakpoint return removed from programmatic API path. Terminal states only.
-3. BLOCKED = "blocked" added to models.py and STATUSES.
+3. BLOCKED = "blocked" and TIMED_OUT = "timed_out" added to models.py and STATUSES.
 4. Tools are the only side-effect boundary. Typed inputs, StatusResult output.
 5. Log root fallback: /s/agent_rw/hpc_logs preferred, ~/.agent/hpc_logs fallback.
 6. provider/model: binary decision before rollout. No inert fields.
 7. Rollout order in schema.txt is correct.
+8. TrainRequest belongs in web.py or schemas.py, not models.py.
+9. OrchestratorConfig must be defined with explicit fields before implementation.
+10. HTTP lifetime: Path A — capped synchronous loop, returns timed_out + job_id.
+11. LangGraph is the recommended orchestration framework.
+12. MCP and LangGraph are complementary layers, not alternatives.
+13. mcp_server.py is the authoritative tool manifest. Drift from service.py is a bug.
+14. system_prompt must be a field in OrchestratorConfig.
+15. NL resolution: tool schema description IS the vocabulary. Vague descriptions
+    produce mapping errors. Each tool must have typed args with example values.
 
-OPEN ISSUES (carried — Codex has not yet responded)
------------------------------------------------------
-ISSUE 1 — TrainRequest in models.py is a layering violation.
-           Move to web.py or schemas.py. models.py must not import pydantic.
+NEW — HPC INTEGRATION DESIGN
+------------------------------
+The existing agent/hpc/ workflow already implements:
+- hpc_submit_poll_fetch.sh: submit + detached poll worker + job.meta provenance
+- hpc_poll_worker.sh: per-job detached worker, lock/sentinel aware, no duplicates
+- hpc_poll_logs.sh: canonical log fetch, stamps last_polled_at in registry
+- job_registry.py: Python abstraction over job_registry.tsv, derives active/closed,
+  resolves per-job local paths (job_dir, std.out, std.err, worker logs)
+- cli/job_registry.sh: add/submit/finish/show/find/ids/archive operations on TSV
+- hpc_dashboard_web.py: web dashboard, active/closed tabs, poll actions, log views
+- cli/train.sh: Slurm GPU training payload (train_retry.py)
+- cli/preproc.sh: Slurm preproc payload (analyze_resample.py)
+- queue_project_init_preproc.sh: paired project-init + dependent preproc Slurm jobs
+- hpc_resubmit.sh: replay prior submit from stored job.meta
 
-ISSUE 2 — OrchestratorConfig referenced but fields never defined.
-           Define in schema before implementation. Minimum fields:
-           max_iterations, poll_interval_seconds, max_poll_attempts,
-           log_root, autonomous, ollama_enabled, ollama_base_url, ollama_model.
+These are mature, working implementations. The orchestration refactor must not
+duplicate them. The integration principle is:
 
-ISSUE 3 — Poll loop vs HTTP connection lifetime unresolved.
-           Commit to Path A (capped synchronous, returns timed_out + job_id)
-           or Path B (background worker, returns accepted + job_id immediately).
+  hpc/ stays as the execution and polling layer.
+  The orchestrator calls into hpc/ tools as its submit/observe implementations
+  when mode=hpc, exactly as it calls local_registry for mode=local.
+  No new polling logic. No new job identity logic. No new registry logic.
 
-NEW — NATURAL LANGUAGE RESOLUTION CHAIN
------------------------------------------
-This section defines how free-text user input resolves to fran CLI execution
-in the Ollama + LangGraph + MCP architecture. Codex must incorporate this
-into the schema as it defines the full intent-to-execution contract.
+HPC INTEGRATION BOUNDARIES
+----------------------------
 
-Example input: "init project kitabd ds kits23"
+1. submit_preproc tool (hpc mode)
+   Calls cli/preproc.sh via hpc_submit_poll_fetch.sh through hpc.py.
+   Returns job_id, job_dir, poll_url, stdout_path, stderr_path in StatusResult.
+   job_id comes from hpc_submit_poll_fetch.sh output. No new submit mechanism.
 
-Step 1 — NL to structured tool call (Ollama)
-The LLM receives the user input alongside a system prompt that enumerates
-available tools with typed signatures and argument descriptions. Example:
+2. submit_train tool (hpc mode)
+   Calls cli/train.sh via hpc_submit_poll_fetch.sh through hpc.py.
+   Same return contract as local: job_id, job_dir, poll_url, log paths.
+   hpc_submit_poll_fetch.sh already writes job.meta with submit_argv for resubmit.
 
-  Tool: init_project
-  Description: Initialise a FRAN project and register its datasources.
-  Arguments:
-    title: str — project title, e.g. kitabd
-    datasources: list[str] — registered dataset keys, e.g. ["kits23", "lits"]
+3. observe_prereq / observe_train_short tools (hpc mode)
+   Calls hpc_poll_logs.sh for a single poll cycle via hpc.py.
+   Reads result from job_registry.tsv via job_registry.py.
+   Returns current state (submitted, running, completed, failed, cancelled).
+   No new polling worker. The detached hpc_poll_worker.sh already runs in background.
+   The orchestrator observe step is a registry READ, not a new poll mechanism.
 
-The model maps "init project" -> init_project and "ds kits23" ->
-datasources=["kits23"] from the tool description alone. No intent vocabulary
-table exists. The tool schema IS the vocabulary. The model emits:
+4. build_crash_packet tool (hpc mode)
+   Reads std.out / std.err from job_dir (already fetched by hpc_poll_worker.sh).
+   Reads worker.log, poll.log from job_dir (already written by hpc_poll_worker.sh).
+   Reads job.meta for provenance (already written at submit time).
+   Reads job_registry.tsv for terminal state / exit_code.
+   No new data collection. Crash packet assembly reads what already exists.
 
-  {"tool": "init_project", "arguments": {"title": "kitabd", "datasources": ["kits23"]}}
+5. rerun_failed_stage tool (hpc mode)
+   Calls hpc_resubmit.sh <job_id>, which replays submit_argv from job.meta.
+   Returns new job_id. No new resubmit mechanism needed.
 
-Step 2 — Tool call to Python function (LangGraph)
-LangGraph receives the structured tool call and routes it to the registered
-Python function:
+BOUNDARY CHANGES REQUIRED IN hpc.py
+--------------------------------------
+hpc.py currently exposes submit and poll as direct function calls. Two changes:
 
-  @tool
-  def init_project(title: str, datasources: list[str]) -> StatusResult:
-      return service.project_ready(title=title, datasources=datasources, ...)
+A. All hpc tool functions must return StatusResult, not raw dicts or shell output.
+   hpc.py wraps the existing CLI calls and maps their output to StatusResult.
+   The orchestrator never reads raw TSV rows or shell stdout directly.
 
-Step 3 — Python function to fran execution (existing code, unchanged)
-service.project_ready -> ensure_project_local -> fran.run.project.project_init.main
-fran reads datasets.yaml to resolve "kits23" to its folder path.
-This layer is entirely existing code. No changes required.
+B. observe functions must accept job_id as input and return StatusResult.
+   Currently hpc_poll_logs.sh resolves "last" from the registry. The orchestrator
+   needs to poll a specific job_id from its graph state, not the last-seen job.
+   hpc_poll_logs.sh already accepts <job_id> as an argument. No shell change needed.
+   hpc.py must pass job_id explicitly, not rely on "last" resolution.
 
-Full chain:
-  "init project kitabd ds kits23"
-    -> Ollama: NL -> tool call JSON
-    -> LangGraph: routes to registered Python function
-    -> service.project_ready
-    -> fran.run.project.project_init.main
-    -> datasets.yaml -> kits23 path -> project initialised
+NO CHANGES REQUIRED
+--------------------
+- hpc_submit_poll_fetch.sh: unchanged
+- hpc_poll_worker.sh: unchanged
+- hpc_poll_logs.sh: unchanged
+- job_registry.py: unchanged
+- cli/job_registry.sh: unchanged
+- cli/train.sh, cli/preproc.sh: unchanged
+- hpc_resubmit.sh: unchanged
+- job_registry.tsv schema: unchanged
 
-ARCHITECTURAL IMPLICATIONS FOR SCHEMA
+WEB INTERFACE — REQUIRED ADAPTATIONS
 ---------------------------------------
-1. The tool schema description (name, argument names, argument descriptions,
-   examples) is the vocabulary that governs NL resolution accuracy.
-   Vague descriptions produce mapping errors. Each tool registered in
-   mcp_server.py must have:
-     - a precise one-line description of what it does
-     - typed arguments with descriptions that include valid example values
-     - explicit note of what keys are valid (e.g. dataset keys must appear
-       in datasets.yaml — list them or reference where to find them)
+The existing web UI (web.py + Jinja2 templates) is a human-in-the-loop form flow.
+It is correct for its purpose. Minimal changes only:
 
-2. This means mcp_server.py is not just a protocol adapter. It is the
-   authoritative tool manifest that the LLM uses to resolve intent.
-   It must be kept in sync with the actual tool signatures in service.py.
-   Drift between mcp_server.py descriptions and service.py signatures is
-   the primary failure mode for NL resolution.
+1. The train submission form currently POSTs fields individually via Body().
+   Replace with TrainRequest Pydantic model. Form field names stay the same.
+   No visible UI change. Only server-side validation improves.
 
-3. The system prompt must constrain output format to JSON tool calls.
-   Without this, Ollama returns prose and the parser breaks. This is a
-   required field in OrchestratorConfig (system_prompt: str or a default
-   template) and must be defined in the schema.
+2. Add a mode selector to the train form: local | hpc.
+   This sets OrchestratorConfig.mode and routes submit/observe to the correct
+   tool implementations. Currently mode is implicit/hardcoded.
 
-4. When ollama_enabled=False, Steps 1 is bypassed entirely. The
-   TrainRequest Pydantic model serves as the structured input directly,
-   and LangGraph calls tools via deterministic edges. The resolution chain
-   collapses to: validated TrainRequest -> LangGraph -> tools -> fran.
-   This is why TrainRequest must not be in models.py — it plays the role
-   of the structured tool call output in the deterministic path.
+3. Status display must handle the new terminal states: submitted, timed_out,
+   debug_failed, repair_submitted. The existing breakpoint display can be removed
+   since the orchestrator no longer returns breakpoints to the HTTP client.
 
-REQUIRED ADDITION TO SCHEMA
------------------------------
-Add a section: "Tool manifest contract"
-- Each tool exposed via mcp_server.py must have name, description,
-  typed arguments with examples, and a note on valid input values.
-- system_prompt must be added to OrchestratorConfig.
-- mcp_server.py is the authoritative source; service.py implements.
-  Any divergence is a bug.
+4. The HPC dashboard (hpc_dashboard_web.py) is a separate service and stays
+   separate. It is not merged into the FastAPI web.py. Cross-linking is sufficient:
+   StatusResult.details.dashboard_url already points to the dashboard for a job.
+   The web UI can render this as a link. No architectural merge needed.
+
+5. The timed_out response includes poll_url. The UI should render this as a
+   direct link so the user can monitor the background job without a new form submit.
+
+WHAT NOT TO CHANGE IN web.py
+------------------------------
+- The /datasource/ready and /project/ready form flows: unchanged.
+- The /api/local-train/jobs/* polling endpoints: unchanged.
+- The Jinja2 template structure: unchanged except for points 2, 3, 5 above.
+- The HPC dashboard service: separate process, separate port, unchanged.
 
 ITERATION STATUS
 -----------------
-Signed off: 7 points
-Open: 3 issues (TrainRequest, OrchestratorConfig, poll loop path)
-New for Codex: NL resolution chain, tool manifest contract, system_prompt field
-Iteration: 3/10
-Waiting for: schema.txt commit newer than c31255f
+Signed off: 15 points
+Open: 0 previously raised issues (all resolved in schema.txt iteration 3)
+New for Codex: HPC integration design, hpc.py boundary changes, web adaptations
+Iteration: 4/10
+Waiting for: schema.txt commit newer than e866589
