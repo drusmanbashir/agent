@@ -1,142 +1,203 @@
-Iteration 2
+Iteration 3
 
 Boundary
-Control-plane path: /home/ub/code/agent/agent/control_plane local training orchestration, from FastAPI request intake through readiness assessment, local/HPC preprocessing submission, local train submission, registry/log observation, and terminal HTTP response. Data-plane execution remains FRAN preprocess/train scripts and HPC/local workers. Dependency edges are /home/ub/code/fran entrypoints, /home/ub/code/agent/agent/hpc registry tooling, /s/fran_storage/conf, /s/agent_rw/hpc_logs, ~/.agent/hpc_logs, and Ollama only if a real client is retained.
+Control-plane path: /home/ub/code/agent/agent/control_plane local training orchestration, from FastAPI request intake through LangGraph orchestration, readiness assessment, local/HPC preprocessing submission, train submission, registry/log observation, failed-job debugging, optional Codex repair escalation, and terminal HTTP response. Data-plane execution remains FRAN preprocess/train scripts and HPC/local workers. Dependency edges are /home/ub/code/fran entrypoints, /home/ub/code/agent/agent/hpc registry tooling, /s/fran_storage/conf, /s/agent_rw/hpc_logs, ~/.agent/hpc_logs, Ollama, and Codex only through an explicit escalation adapter.
 
-Current defects
+Signed Off
+1. Orchestrator sits above all tool access: web -> orchestrator -> tools.
+2. /api/orchestrator/requests/train remains, but no longer returns breakpoints.
+3. Programmatic API returns terminal states only: submitted, completed, blocked, failed, timed_out, or debug_failed if debugging exhausts repair.
+4. BLOCKED = "blocked" and TIMED_OUT = "timed_out" belong in models.py and STATUSES.
+5. Tools are the only side-effect boundary below the orchestrator and return StatusResult.
+6. Local log root fallback is /s/agent_rw/hpc_logs when writable, otherwise ~/.agent/hpc_logs.
+7. provider/model are not inert fields; Ollama appears only as real OrchestratorConfig client config.
+8. TrainRequest is a web-facing schema in schemas.py or web.py, not models.py.
+9. OrchestratorConfig has concrete fields and owns runtime caps, log root, LangGraph, Ollama, and Codex settings.
+10. HTTP lifetime follows Path A: capped synchronous loop in run_in_threadpool.
+
+Current Defects
 1. The orchestrator is not at the top of the call stack. /api/orchestrator/requests/train calls service readiness and a small decision helper, then either returns a breakpoint or submits training.
-2. Preprocessing is gated by client follow-up. train_plan_ready returns breakpoint=preproc instead of letting the orchestrator submit preproc, observe within a cap, and continue when possible.
-3. provider/model are recorded but not used as a real client config. They must become concrete Ollama config or be removed.
-4. Status payloads are not canonical. Status strings and fields vary across train/preproc/job paths; blocked is used ad hoc but absent from models.STATUSES.
+2. Preprocessing is gated by client follow-up. train_plan_ready returns breakpoint=preproc instead of letting the orchestrator submit preproc, observe briefly, and continue when possible.
+3. provider/model are recorded but not used as a real Ollama client config.
+4. Status payloads are not canonical. Status strings and fields vary across train/preproc/job paths.
 5. The train API uses per-field Body parameters, spreading request validation across web.py and service signatures.
-6. Local logs assume /s/agent_rw/hpc_logs exists. A developer or fallback runtime without /s mounted cannot reliably use the local registry path.
+6. Failed train jobs surface crash packets but do not have a controlled debug, repair, rerun, and resume workflow.
+7. Local logs assume /s/agent_rw/hpc_logs exists.
 
-Target architecture
-The orchestrator owns the train intent lifecycle and sits above all tool access:
-HTTP request -> validate web request schema -> build domain command/config -> orchestrator loop -> assess -> act -> observe -> repeat -> terminal StatusResult.
+Target Architecture
+Flow:
+HTTP request -> validate web TrainRequest -> build train command + OrchestratorConfig -> LangGraph orchestrator -> assess -> decide -> act -> observe -> debug/repair if needed -> repeat -> terminal StatusResult.
 
-/api/orchestrator/requests/train remains the public endpoint. Its semantics change from gated single-shot to a capped autonomous agent loop. The endpoint returns one terminal StatusResult for the HTTP attempt: submitted, completed, blocked, failed, or timed_out. It must not return breakpoints that require the caller to manually invoke preproc.
+The LangGraph graph lives in the orchestrator layer, not in web.py, service.py, tools, or FRAN code. Ollama is used at decision nodes when state is ambiguous, when natural-language intent must become a tool call, or when failure triage needs classification. Deterministic routing is preferred when state is clear, such as plan preprocessed=both -> submit_train, missing preproc -> submit_preproc, active job -> observe_job, known failed job -> build_crash_packet.
 
-HTTP lifetime commitment: Path A
+/api/orchestrator/requests/train remains the public endpoint. Its semantics change from gated single-shot to a capped autonomous loop. It resolves prerequisites autonomously where safe, but once train is successfully submitted it normally returns status=submitted rather than waiting through a long train runtime.
+
+HTTP Lifetime: Path A
 The autonomous loop runs synchronously inside run_in_threadpool and is capped by OrchestratorConfig.max_iterations, max_poll_attempts, poll_interval_seconds, and deadline_seconds.
-If the cap is reached while preproc or train work is still active, return status=timed_out with active job identity, log_root, and poll_url in details. The caller then polls existing job endpoints such as /api/local-train/jobs/{job_id}, /api/local-train/jobs/{job_id}/crash, stdout, and stderr.
-timed_out is terminal for the HTTP request, not proof that the underlying job failed. The orchestrator must persist enough registry/provenance state for later polling to recover the live state.
-
-Provider/model decision
-Choose one path before implementation:
-1. Real config: keep Ollama only through OrchestratorConfig fields ollama_enabled, ollama_base_url, ollama_model, and ollama_timeout_seconds. Use it only inside the orchestrator decision boundary.
-2. Remove fields: delete provider/model from request, local registry metadata, and orchestrator state until there is a real client.
-Preferred smallest safe path: remove provider/model from behavior-facing contracts unless an Ollama endpoint is available and validated.
+The cap is for prerequisite resolution and short observation only. It can wait briefly for preproc/job state transitions, but must not hold the HTTP request for a full training run.
+If preproc or another prerequisite is still active when the cap is reached, return status=timed_out with active job_id, log_root, poll_url, and last_observation.
+If train submission succeeds, return status=submitted with train job_id, log_root, poll_url, stdout/stderr URLs, and crash packet URL.
+timed_out is terminal for the HTTP request, not proof that underlying work failed. The caller polls existing endpoints such as /api/local-train/jobs/{job_id}, /api/local-train/jobs/{job_id}/crash, stdout, and stderr.
 
 OrchestratorConfig
-Define an explicit config object in the control-plane orchestration layer, not in web request schemas:
+Define an explicit config object in /home/ub/code/agent/agent/control_plane/ollama_orchestrator.py or a nearby orchestration module:
 autonomous: bool, default true. False restores current single-shot readiness-submit behavior for rollback.
-max_iterations: int, bounds total assess/act/observe cycles.
+max_iterations: int, bounds graph cycles.
 poll_interval_seconds: float, sleep between observe attempts.
-max_poll_attempts: int, bounds observe polling for each submitted action.
+max_poll_attempts: int, bounds short observation for each submitted prerequisite action.
 deadline_seconds: float, hard cap for the synchronous HTTP attempt.
 log_root: Path | None, where None means prefer /s/agent_rw/hpc_logs when writable and otherwise use ~/.agent/hpc_logs.
 mode: str, local or hpc.
-ollama_enabled: bool, default false unless real client is configured.
-ollama_base_url: str | None.
-ollama_model: str | None.
+langgraph_enabled: bool, default true.
+system_prompt: str, default template constraining Ollama to JSON tool calls when NL/tool selection is needed.
+ollama_enabled: bool, default true for decision nodes once client config is validated.
+ollama_base_url: str.
+ollama_model: str.
 ollama_timeout_seconds: float.
+codex_enabled: bool, default false until the adapter is validated.
+codex_max_attempts: int, default 3.
+codex_branch_prefix: str, default codex.
 
-Required changes by file
-/home/ub/code/agent/agent/control_plane/models.py
-Keep this as the domain/status layer. Do not import pydantic here.
-Add BLOCKED = "blocked" and TIMED_OUT = "timed_out"; include both in STATUSES.
-Make StatusResult the canonical response shape:
+Status Contract
+/home/ub/code/agent/agent/control_plane/models.py remains the domain/status layer and must not import pydantic.
+Add statuses: BLOCKED = "blocked", TIMED_OUT = "timed_out", DEBUGGING = "debugging", REPAIR_SUBMITTED = "repair_submitted", DEBUG_FAILED = "debug_failed" as needed by the debug loop.
+Canonical StatusResult fields:
 target, name, mode, status, message, details, job, error_code, next_action, observed_at.
-Keep job optional. Keep details for structured diagnostics only, not alternate top-level schemas.
+details carries structured diagnostics only: plan_id, dashboard, log_root, poll_url, last_observation, crash_packet_path, repair_attempts, branch, pr_url when available.
 
-/home/ub/code/agent/agent/control_plane/schemas.py
-Add web-facing Pydantic TrainRequest here, or place it in /home/ub/code/agent/agent/control_plane/web.py if a separate module is not wanted.
+Request Contract
+Add web-facing Pydantic TrainRequest in /home/ub/code/agent/agent/control_plane/schemas.py or /home/ub/code/agent/agent/control_plane/web.py.
+Do not place TrainRequest in /home/ub/code/agent/agent/control_plane/models.py.
 Fields: project, plan_id, fold, train_indices, val_every_n_epochs, learning_rate, run_name, and existing train options that remain supported.
-This schema is for HTTP validation only. Service/orchestrator code should receive a domain command or typed plain object, not import a web contract unnecessarily.
+web.py converts TrainRequest into a domain train command and calls the LangGraph orchestrator through run_in_threadpool.
 
-/home/ub/code/agent/agent/control_plane/web.py
-Replace per-field Body parameters in orchestrator_train_request_api with request: TrainRequest.
-Keep route /api/orchestrator/requests/train unchanged.
-Build OrchestratorConfig for Path A and call the orchestrator through run_in_threadpool.
-Return canonical StatusResult dictionaries only.
+LangGraph Orchestrator Contract
+Graph state contains request command, config, observations, selected tool call, active job, crash packet, repair attempts, and terminal StatusResult.
+Nodes:
+assess_plan: read project/plan/preproc state.
+decide_next: deterministic route when state is clear; Ollama JSON decision only when ambiguous.
+submit_preproc: submit local/HPC preproc through tools.
+observe_prereq: short poll for preproc or prerequisite jobs.
+submit_train: submit train and return submitted on success.
+observe_train_short: optional brief observation only to catch immediate launch failure.
+debug_failed_job: build crash packet and classify failure.
+escalate_codex: call Codex adapter when enabled and retry policy allows.
+rerun_failed_stage: rerun failed stage after repair.
+terminal: emit canonical StatusResult.
 
-/home/ub/code/agent/agent/control_plane/ollama_orchestrator.py
-Replace decide_train_workflow with a real Orchestrator class/function that owns tool calls through injected tool interfaces.
-Implement the capped assess -> act -> observe -> repeat loop.
-Remove breakpoint return behavior.
-Return timed_out when the HTTP cap is reached with active work still observable.
-If provider/model remain, instantiate a real Ollama client from OrchestratorConfig; otherwise remove provider/model from this module.
+Tool Manifest Contract
+/home/ub/code/agent/agent/control_plane/mcp_server.py is the authoritative tool manifest for NL resolution and must stay in sync with /home/ub/code/agent/agent/control_plane/service.py.
+Each exposed tool must have name, one-line description, typed arguments, examples, and valid input guidance.
+Dataset/project keys must either list valid examples or reference /s/fran_storage/conf/datasets.yaml.
+Ollama must be constrained by system_prompt to emit JSON tool calls. Prose output is invalid.
+When ollama_enabled=false, NL resolution is bypassed; validated TrainRequest enters LangGraph directly and deterministic edges call tools.
 
-/home/ub/code/agent/agent/control_plane/service.py
-Move train orchestration entrypoint to call the Orchestrator.
-Expose tools for assess_project_plan, submit_preproc, observe_preproc, submit_train, observe_train, and record_message.
-Keep direct helper functions small and side-effect boundaries explicit.
-Return BLOCKED when prerequisites cannot be repaired autonomously, such as missing project registration or non-repairable dataset state.
-
-/home/ub/code/agent/agent/control_plane/local_registry.py
-Change logs_root so /s/agent_rw/hpc_logs is preferred when writable, otherwise use ~/.agent/hpc_logs.
-Persist the selected log root in returned job/status details so operators know where artifacts landed.
-Ensure any action that may outlive the HTTP cap has a stable registry job_id or a stable pollable artifact surfaced through existing job detail/crash endpoints.
-Remove provider/model metadata here if it is not backed by real Ollama config.
-
-/home/ub/code/agent/agent/control_plane/hpc.py
-Keep HPC submit/poll as tool implementations, not orchestrator policy.
-Add local log root fallback awareness anywhere dashboard or registry paths are surfaced.
-
-/home/ub/code/agent/agent/control_plane/test_web.py and /home/ub/code/agent/agent/control_plane/tests/
-Update tests to use TrainRequest payloads and canonical StatusResult fields.
-Cover ready path, preproc-needed autonomous path, blocked path, timed_out path, and local log fallback.
-
-Execution loop contract
-Input is a validated train command derived from TrainRequest plus OrchestratorConfig.
-Each iteration records an observation with status, message, details, and observed_at.
-Assess determines current readiness from tools, not cached assumptions.
-Act may submit preproc or train exactly once per missing step unless observation proves retry is needed.
-Observe polls the submitted artifact through registry/HPC/local tools until ready, submitted, running, completed, blocked, failed, or timed_out.
-Repeat continues only while progress is possible and within configured iteration, poll, and deadline caps.
-Return one terminal StatusResult for the HTTP attempt. No breakpoint field. Use next_action only for operator-visible guidance after terminal blocked, failed, or timed_out states.
-
-Tool interface contract
+Tool Interface Contract
 Tools are the only side-effect boundary below the orchestrator.
 Each tool accepts typed inputs and returns StatusResult.
-Tools must be idempotent where practical: repeated assess is read-only, repeated submit checks existing active work before creating a new job, repeated observe does not mutate except registry poll timestamps.
-Tools must surface job_id, command, job_dir, dashboard_url, poll_url, and log_root in details/job when applicable.
+Tools must be idempotent where practical: repeated assess is read-only, repeated submit checks existing active work before creating a new job, repeated observe only mutates registry poll timestamps.
+Tools must surface job_id, command, job_dir, dashboard_url, poll_url, stdout_path, stderr_path, crash_packet_path, and log_root in details/job when applicable.
 Tools do not call the orchestrator and do not decide high-level policy.
 
-Request/response contract
-Request: POST /api/orchestrator/requests/train with JSON matching web-facing TrainRequest.
-Response: canonical StatusResult dict.
-Allowed terminal statuses for this endpoint: submitted, completed, blocked, failed, timed_out.
-submitted means train was accepted by the local/HPC execution substrate within the HTTP cap.
-completed means the configured cap allowed observation through successful completion.
-blocked means the orchestrator cannot safely repair the prerequisite without operator action.
-failed means an attempted action failed.
-timed_out means the capped synchronous loop reached its limit while work may still be active; details must include poll_url and active job/log identity when available.
-details must include plan_id, mode, dashboard, log_root, last_observation, and poll_url when available.
+Failed Job Debugging
+Failure classes:
+launch_failure: worker process, missing executable, bad cwd, missing env, permission error.
+preproc_failure: analyze/resample command failed or expected preprocessed artifacts absent after completion.
+train_failure: train_retry exited non-zero, immediate import/config error, CUDA/device error, data loading error, OOM, or metric/runtime crash.
+registry_failure: job row missing, stale job, missing job_dir, missing stdout/stderr, malformed metadata.
+infra_failure: /s unavailable, HPC submit/poll failure, dashboard unavailable, log root unwritable.
 
-Rollout order
-1. Add BLOCKED, TIMED_OUT, and canonical StatusResult fields in models.py; update status tests around existing behavior.
-2. Add web-facing TrainRequest in schemas.py or web.py; switch only /api/orchestrator/requests/train intake to the typed request.
-3. Add OrchestratorConfig with Path A fields and defaults; wire web.py to run the loop in run_in_threadpool.
-4. Add log root fallback from /s/agent_rw/hpc_logs to ~/.agent/hpc_logs and validate registry creation.
-5. Refactor service functions behind explicit tool interfaces while preserving current single-shot behavior behind autonomous=false.
-6. Replace breakpoint behavior with capped autonomous preproc submit/observe/reassess loop and timed_out return.
-7. Remove provider/model metadata or wire a real Ollama config, then update persisted state shape.
-8. Update UI/client expectations for autonomous terminal HTTP response and post-timeout polling.
+Crash packet shape:
+job_id, stage, status, failure_class, error_code, message, command, cwd, env_summary, job_dir, log_root, stdout_path, stderr_path, stdout_tail, stderr_tail, worker_log_tail, poll_log_tail, job_meta, worker_meta, orch_json, dashboard, timestamps, previous_attempts, suspected_owner, recommended_action.
+Persist packet at <job_dir>/crash_packet.json and expose /api/local-train/jobs/{job_id}/crash.
+
+Triage loop:
+observe failed status -> build crash packet -> deterministic classify if signatures are clear -> Ollama classify only when ambiguous -> choose retryable, codex_repairable, blocked, or terminal failed.
+Retry policy:
+retry transient infra/registry observation once when no code/config change is needed.
+retry resource-shaped failures only through bounded parameter change if already supported by train_retry policy.
+do not retry deterministic code/config failures without repair.
+Terminal debug statuses:
+debugging while packet/classification is being built.
+repair_submitted when Codex repair has been delegated.
+debug_failed when triage/repair attempts are exhausted.
+failed when the workflow reaches an unrepaired terminal failure.
+
+Codex Escalation
+Add escalate_to_codex(packet) as an adapter at the orchestrator boundary. It receives only the crash packet plus minimal repo paths and returns repair_result with status, branch, commit, pr_url, summary, and validation.
+Branch naming: codex/<job_id>/<attempt>.
+Attempt cap: up to 3 repair attempts per job/stage.
+For each repair attempt:
+create or update branch codex/<job_id>/<attempt>.
+apply the smallest code/config/test repair needed for the packet.
+rerun the failed stage after fix through the existing tool path.
+if rerun succeeds, resume the LangGraph workflow from the failed node.
+if rerun fails, build a new crash packet and either attempt the next repair or terminally fail.
+After 3 failed attempts, return debug_failed or failed with packet paths and next_action for user review.
+On successful repair, assign branch/PR to the user for merge/review and include branch and pr_url in StatusResult.details. The orchestrator does not auto-merge.
+
+Required Changes By File
+/home/ub/code/agent/agent/control_plane/models.py
+Add canonical statuses and StatusResult fields. Keep pydantic out.
+
+/home/ub/code/agent/agent/control_plane/schemas.py
+Add TrainRequest if using a separate web schema module.
+
+/home/ub/code/agent/agent/control_plane/web.py
+Use TrainRequest, build OrchestratorConfig, run LangGraph orchestrator in run_in_threadpool, return StatusResult only.
+
+/home/ub/code/agent/agent/control_plane/ollama_orchestrator.py
+Replace decide_train_workflow with LangGraph graph, OrchestratorConfig, Ollama decision nodes, deterministic routing, capped loop, debug nodes, and Codex escalation adapter call.
+
+/home/ub/code/agent/agent/control_plane/service.py
+Expose tool implementations for assess_project_plan, submit_preproc, observe_preproc, submit_train, observe_train_short, build_crash_packet, rerun_failed_stage, and record_message.
+
+/home/ub/code/agent/agent/control_plane/local_registry.py
+Add log root fallback, stable artifact paths, crash_packet.json persistence, and poll_url/stdout/stderr/crash URL details.
+
+/home/ub/code/agent/agent/control_plane/mcp_server.py
+Tighten tool descriptions, typed argument descriptions, examples, and valid input guidance.
+
+/home/ub/code/agent/agent/control_plane/hpc.py
+Keep submit/poll as tools; surface dashboard, registry, and log paths consistently.
+
+/home/ub/code/agent/agent/control_plane/tests/ and /home/ub/code/agent/agent/control_plane/test_web.py
+Cover TrainRequest intake, LangGraph deterministic route, Ollama decision-node contract, preproc autonomous path, submitted train return, timed_out prerequisite path, failed debug packet, Codex attempt cap, and log fallback.
+
+Rollout Order
+1. Add statuses and canonical StatusResult fields.
+2. Move TrainRequest to schemas.py or web.py and keep models.py domain-only.
+3. Add OrchestratorConfig with LangGraph, Ollama, Path A, log root, and Codex fields.
+4. Add log root fallback and stable artifact URL/path reporting.
+5. Refactor service functions into explicit tools while preserving autonomous=false rollback.
+6. Implement LangGraph deterministic graph without Ollama first.
+7. Add Ollama JSON decision nodes and tool manifest/system_prompt contract.
+8. Replace breakpoint behavior with autonomous preproc resolution and submitted-on-train semantics.
+9. Add failed job crash packet, triage loop, terminal debug statuses, and retry policy.
+10. Add Codex escalation adapter behind codex_enabled=false by default; then validate up to 3 repair attempts.
+11. Update UI/client expectations for submitted, timed_out, debug_failed, and post-response polling.
 
 Validation
-Normal path: project plan already has source and plan datasets; endpoint returns submitted train with canonical StatusResult and job/log/poll details.
-Autonomous path: plan needs preprocessing; orchestrator submits preproc, observes within cap, reassesses readiness, then submits train if ready before deadline.
-Timed-out path: long preproc or train exceeds cap; endpoint returns timed_out with active job_id, log_root, last_observation, and poll_url; existing job detail/crash/stdout/stderr endpoints can retrieve state.
-Failure path: project is missing or preproc/train submission fails; endpoint returns blocked or failed with error_code, next_action, and no partial top-level schema.
-Recovery path: /s/agent_rw/hpc_logs unavailable; local submission writes registry and artifacts under ~/.agent/hpc_logs and subsequent polling resolves the same job.
-Determinism: repeated requests with active matching preproc/train work observe existing work instead of duplicating submissions.
+Normal path: preprocessed plan returns submitted train with job_id, poll_url, stdout/stderr URLs, crash URL, and log_root.
+Autonomous prerequisite path: missing preproc submits preproc, observes within cap, reassesses, then submits train if ready before deadline.
+Timed-out prerequisite path: long preproc returns timed_out with active job identity and polling links.
+Immediate train failure path: train launch fails quickly, crash_packet.json is written, failure_class is set, and debug status is returned.
+Codex repair path: a synthetic repairable failure calls escalate_to_codex(packet), creates codex/<job_id>/<attempt>, reruns failed stage, and resumes on success.
+Repair exhaustion path: three failed attempts return debug_failed with packet paths and next_action.
+Recovery path: /s/agent_rw/hpc_logs unavailable writes registry/artifacts under ~/.agent/hpc_logs and job polling still resolves.
+Determinism: repeated requests with matching active work observe existing jobs instead of duplicating submissions.
 
 Rollback
-Keep route name stable so rollback is code-level only.
-Set OrchestratorConfig.autonomous=false to restore previous readiness-submit behavior while keeping typed request and canonical status response.
-Keep old response keys only as temporary compatibility inside details, not as top-level contract.
-If timed_out polling semantics are unsafe in practice, lower caps and return submitted earlier with poll_url rather than holding HTTP longer.
-If log fallback causes registry ambiguity, force configured log_root back to /s/agent_rw/hpc_logs and stop local fallback.
-If Ollama config is not validated, remove provider/model rather than retaining inert fields.
+Keep /api/orchestrator/requests/train stable.
+Set autonomous=false to restore current readiness-submit behavior while retaining typed request and canonical status.
+Set langgraph_enabled=false only as an emergency fallback to direct deterministic service flow.
+Set ollama_enabled=false to bypass LLM decisions and use deterministic routing.
+Set codex_enabled=false to disable repair escalation without disabling crash packet generation.
+If log fallback causes registry ambiguity, force log_root=/s/agent_rw/hpc_logs.
+If submitted-on-train semantics surprise clients, keep response fields stable and adjust UI copy, not route shape.
+
+Open Issues
+1. Final default cap values for max_iterations, max_poll_attempts, poll_interval_seconds, and deadline_seconds need production values.
+2. Ollama base URL/model defaults and availability checks need live environment validation.
+3. Codex escalation permissions, branch push target, and PR assignment mechanism need validation before codex_enabled=true.
+4. Exact mapping from FRAN stderr signatures to failure_class/error_code should be grown from real crash packets.
