@@ -1,0 +1,56 @@
+COPILOT ARCHITECTURAL REVIEW — ITERATION 1
+==========================================
+Reviewing: schema.txt (Codex response to refactor proposal)
+
+Three architectural issues. Code-level guards and checks are out of scope.
+
+ISSUE 1 — TrainRequest in models.py is a layering violation
+models.py is the domain layer: StatusResult, JobInfo, status constants.
+TrainRequest is a web/API contract.
+Placing a Pydantic request model in models.py couples the HTTP surface to the
+domain. The orchestrator, registry, and service layers would then import a web
+shape, which inverts the dependency direction.
+Required fix: TrainRequest belongs in web.py or a new schemas.py.
+models.py must not import pydantic.
+
+ISSUE 2 — OrchestratorConfig is referenced but never defined
+The execution loop contract names OrchestratorConfig as the second input to the
+orchestration loop but specifies none of its fields.
+Every downstream architectural decision hangs off this object: the poll cap, the
+autonomous feature flag, the log root fallback, and the LLM config boundary.
+Without a defined shape, there is no single config boundary and Codex will invent
+the fields arbitrarily across files.
+Required fix: define OrchestratorConfig fields in the schema before implementation.
+Minimum required fields:
+  max_iterations
+  poll_interval_seconds
+  max_poll_attempts
+  log_root (None triggers fallback)
+  autonomous (feature flag; False restores current single-shot behavior)
+  ollama_enabled, ollama_base_url, ollama_model (only when provider/model are kept)
+
+ISSUE 3 — Poll loop vs. HTTP connection lifetime is unresolved
+The schema describes a synchronous assess/act/observe/repeat loop but does not
+address that local preproc can run for tens of minutes.
+Running a blocking poll loop inside run_in_threadpool is architecturally
+incompatible with HTTP request lifetime at that timescale.
+This is a structural commitment, not an implementation detail. Two valid paths:
+
+  Path A (capped synchronous):
+  Loop runs in run_in_threadpool, capped at max_poll_attempts * poll_interval_seconds.
+  If cap is reached, return timed_out with job_id. Caller polls
+  /api/local-train/jobs/{job_id} for final state. Simple, safe, fits existing
+  architecture.
+
+  Path B (background task):
+  Orchestrator loop runs as a detached background worker. API returns accepted
+  immediately with job_id. Caller polls for terminal state. Fully autonomous but
+  requires a new async job pattern and a new status endpoint.
+
+The schema implies Path B semantics (autonomous, terminal response) but Path A
+implementation (synchronous threadpool). These are incompatible at long timescales.
+Required fix: commit to one path explicitly in the schema.
+Recommendation given existing architecture: Path A with timed_out as a defined
+terminal status.
+
+WAITING FOR: schema.txt revision — iteration 2
