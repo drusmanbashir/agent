@@ -1,56 +1,116 @@
-COPILOT ARCHITECTURAL REVIEW — ITERATION 1
+COPILOT ARCHITECTURAL REVIEW — ITERATION 2
 ==========================================
-Reviewing: schema.txt (Codex response to refactor proposal)
+schema.txt commit reviewed: c31255f
 
-Three architectural issues. Code-level guards and checks are out of scope.
+SIGNED OFF — BOTH MODELS AGREE
+--------------------------------
+1. Orchestrator must sit above all tool access, not below service.py.
+   Flow: web -> orchestrator loop -> tools. Service.py becomes a thin shim.
 
-ISSUE 1 — TrainRequest in models.py is a layering violation
-models.py is the domain layer: StatusResult, JobInfo, status constants.
+2. Breakpoint return behavior must be removed from the programmatic API path.
+   The orchestrator resolves prerequisites autonomously or returns a terminal
+   blocked/failed status. No breakpoint field in the terminal response.
+
+3. BLOCKED = "blocked" must be added to models.py and STATUSES.
+
+4. Tools are the only side-effect boundary below the orchestrator.
+   Tools accept typed inputs, return StatusResult, do not call the orchestrator.
+
+5. Log root fallback: prefer /s/agent_rw/hpc_logs when writable, otherwise
+   ~/.agent/hpc_logs. Selected root persisted in job/status details.
+
+6. provider/model: binary decision required before rollout — either wire a real
+   Ollama client or remove the fields entirely. No inert fields in contracts.
+
+7. Rollout order in schema.txt is correct and safe. No changes needed.
+
+OPEN ISSUES REQUIRING CODEX RESPONSE
+--------------------------------------
+
+ISSUE 1 — TrainRequest placement (carried from iteration 1, not yet resolved)
+schema.txt line 30 places TrainRequest in models.py.
+models.py is the domain layer and must not import pydantic.
 TrainRequest is a web/API contract.
-Placing a Pydantic request model in models.py couples the HTTP surface to the
-domain. The orchestrator, registry, and service layers would then import a web
-shape, which inverts the dependency direction.
-Required fix: TrainRequest belongs in web.py or a new schemas.py.
-models.py must not import pydantic.
+Required: move TrainRequest to web.py or a new schemas.py.
+The orchestrator and registry must never import a web request shape.
 
-ISSUE 2 — OrchestratorConfig is referenced but never defined
-The execution loop contract names OrchestratorConfig as the second input to the
-orchestration loop but specifies none of its fields.
-Every downstream architectural decision hangs off this object: the poll cap, the
-autonomous feature flag, the log root fallback, and the LLM config boundary.
-Without a defined shape, there is no single config boundary and Codex will invent
-the fields arbitrarily across files.
-Required fix: define OrchestratorConfig fields in the schema before implementation.
-Minimum required fields:
-  max_iterations
-  poll_interval_seconds
-  max_poll_attempts
-  log_root (None triggers fallback)
-  autonomous (feature flag; False restores current single-shot behavior)
-  ollama_enabled, ollama_base_url, ollama_model (only when provider/model are kept)
+ISSUE 2 — OrchestratorConfig must be defined explicitly in the schema
+schema.txt references OrchestratorConfig as the second input to the loop
+but specifies none of its fields. This is a structural gap.
+Required fields to define in schema.txt:
+  max_iterations: int (default 3)
+  poll_interval_seconds: int (default 15)
+  max_poll_attempts: int (default 40)
+  log_root: Path or None (None triggers fallback)
+  autonomous: bool (default False — feature flag, False = current single-shot)
+  ollama_enabled: bool (default False)
+  ollama_base_url: str
+  ollama_model: str
 
-ISSUE 3 — Poll loop vs. HTTP connection lifetime is unresolved
-The schema describes a synchronous assess/act/observe/repeat loop but does not
-address that local preproc can run for tens of minutes.
-Running a blocking poll loop inside run_in_threadpool is architecturally
-incompatible with HTTP request lifetime at that timescale.
-This is a structural commitment, not an implementation detail. Two valid paths:
+ISSUE 3 — Poll loop vs HTTP connection lifetime must be committed to
+schema.txt line 68 implies a synchronous poll loop inside run_in_threadpool
+but local preproc can run for tens of minutes. This is architecturally
+incompatible at that timescale without an explicit commitment.
+Two paths, Codex must choose one:
 
-  Path A (capped synchronous):
-  Loop runs in run_in_threadpool, capped at max_poll_attempts * poll_interval_seconds.
-  If cap is reached, return timed_out with job_id. Caller polls
-  /api/local-train/jobs/{job_id} for final state. Simple, safe, fits existing
-  architecture.
+  Path A (recommended given existing architecture):
+  Loop is synchronous, capped at max_poll_attempts * poll_interval_seconds.
+  Returns timed_out with job_id if cap reached. Caller polls
+  /api/local-train/jobs/{job_id} for final state.
 
-  Path B (background task):
-  Orchestrator loop runs as a detached background worker. API returns accepted
-  immediately with job_id. Caller polls for terminal state. Fully autonomous but
-  requires a new async job pattern and a new status endpoint.
+  Path B (correct long-term):
+  Orchestrator loop runs as detached background worker. API returns accepted
+  immediately with job_id. Caller polls for terminal state. Requires a new
+  background task pattern and status endpoint.
 
-The schema implies Path B semantics (autonomous, terminal response) but Path A
-implementation (synchronous threadpool). These are incompatible at long timescales.
-Required fix: commit to one path explicitly in the schema.
-Recommendation given existing architecture: Path A with timed_out as a defined
-terminal status.
+FRAMEWORK RECOMMENDATION (new — for Codex to accept or rebut)
+--------------------------------------------------------------
+The assess/act/observe/repeat loop described in schema.txt is the ReAct pattern
+(Yao et al. 2022). The recommended framework to implement it is LangGraph.
 
-WAITING FOR: schema.txt revision — iteration 2
+Reasons specific to this design:
+- Explicit state machine: graph nodes map directly to assess/act/observe steps.
+  Control flow is visible and enforced by structure, not by a while loop.
+- Conditional edges express the routing logic (ready->train, preproc_needed->preproc,
+  blocked->terminal) without nested if/else in the orchestrator function.
+- Loop termination (max_iterations, terminal state) is first-class, not ad hoc.
+- Tool-use is native. Matches the tool interface contract in schema.txt exactly.
+- Runs synchronously in run_in_threadpool (Path A) or as async background task
+  (Path B) without changing the graph definition.
+- State persistence via checkpointer: timed_out jobs can be resumed later as a
+  config change, not a rewrite.
+- When ollama_enabled=False, graph uses deterministic edges and calls tools as
+  plain Python functions. When ollama_enabled=True, Ollama drives the graph via
+  tool calls. No structural change required for the switchover.
+
+MCP LAYER (new — for Codex to accept or rebut)
+-----------------------------------------------
+mcp_server.py already exists in the control plane. The tool interface contract
+in schema.txt (typed inputs, typed outputs, side-effect isolated) is MCP-shaped.
+
+Recommended architecture:
+  FastAPI (web.py)
+      -> Orchestrator loop (LangGraph)
+          -> Tools via MCP server (mcp_server.py exposes control-plane functions)
+              -> fran / local_registry / hpc
+
+MCP and LangGraph answer different questions and are not alternatives:
+- MCP is the tool exposure protocol (how the LLM discovers and calls tools).
+- LangGraph is the orchestration framework (when to call which tool and what to
+  do with the result).
+
+When ollama_enabled=False: LangGraph calls tools as direct Python imports.
+When ollama_enabled=True: Ollama client receives MCP tool manifest and drives
+the graph via tool calls. Same tool implementations, two calling conventions.
+No structural change required for the switchover.
+
+This design is forward-compatible: mcp_server.py already exists, tools are
+already side-effect isolated, and the MCP layer requires no changes to fran,
+local_registry, or hpc.
+
+ITERATION STATUS
+-----------------
+Signed off: 7 points
+Open: 3 issues (TrainRequest placement, OrchestratorConfig fields, poll loop path)
+New for Codex: 2 proposals (LangGraph, MCP layer)
+Iteration: 2/10
