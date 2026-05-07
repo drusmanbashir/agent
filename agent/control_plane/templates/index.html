@@ -563,6 +563,22 @@
         line-height: 1.55;
       }
 
+      .log-block {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 520px;
+        overflow: auto;
+      }
+
+      .summary-text {
+        margin: 10px 0 0;
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        background: rgba(91, 56, 34, 0.08);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
       .result-card h3,
       .summary-card h3,
       .form-card h2,
@@ -839,9 +855,9 @@
         <div class="forms-layout">
           <div class="train-stack">
             <section class="form-card">
-              <p class="eyebrow">Orchestrator</p>
+              <p class="eyebrow">ACP</p>
               <h2 id="local-train-tab">Request FRAN train workflow</h2>
-              <p class="muted">Ask the orchestrator to resolve train prerequisites first; ready plans submit into the existing local job registry and log views.</p>
+              <p class="muted">Ask ACP to resolve train prerequisites first; ready plans submit into the existing local job registry and log views.</p>
 
               <form class="field-stack" id="local-train-form">
                 <div class="inline-fields">
@@ -872,8 +888,7 @@
                       name="train_indices"
                       type="number"
                       min="1"
-                      required
-                      value="{{ local_train_form.train_indices }}"
+                      value="{{ "" if local_train_form.train_indices is none else local_train_form.train_indices }}"
                     />
                   </div>
                   <div>
@@ -903,7 +918,7 @@
                   <button class="button" id="local-train-submit" type="submit">Request train workflow</button>
                   <button class="button secondary" id="local-train-preset" type="button">Use kits23 plan 3 test</button>
                 </div>
-                <p class="small-note">Preset keeps the form aligned with the required `kits23` plan `3` orchestrator train test case.</p>
+                <p class="small-note">Preset keeps the form aligned with the required `kits23` plan `3` ACP train test case.</p>
                 <p class="status-line" id="local-train-submit-status" aria-live="polite"></p>
                 <div class="banner" id="local-train-submit-error" hidden></div>
               </form>
@@ -912,14 +927,14 @@
             <aside class="panel">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow">Orchestrator</p>
+                  <p class="eyebrow">ACP</p>
                   <h2>Runtime status</h2>
-                  <p class="muted">Backend-supplied orchestrator state, message stream, and crash/debug handoff live here.</p>
+                  <p class="muted">Backend-supplied ACP state, message stream, and crash/debug handoff live here.</p>
                 </div>
               </div>
 
               <div class="orchestrator-shell">
-                <div class="orchestrator-empty empty-state" id="orchestrator-empty">Waiting for orchestrator status from the backend.</div>
+                <div class="orchestrator-empty empty-state" id="orchestrator-empty">Waiting for ACP status from the backend.</div>
 
                 <div class="info-grid" id="orchestrator-state" hidden>
                   <div class="info-card">
@@ -928,7 +943,7 @@
                       <span id="orchestrator-status-text">Unknown</span>
                     </div>
                     <p class="muted" id="orchestrator-updated-at">No update timestamp yet.</p>
-                    <p id="orchestrator-message">No orchestrator message yet.</p>
+                    <p id="orchestrator-message">No ACP message yet.</p>
                   </div>
 
                   <div class="info-card" id="orchestrator-links-card" hidden>
@@ -939,11 +954,11 @@
 
                 <form class="note-shell field-stack" id="orchestrator-message-form">
                   <div>
-                    <label for="orchestrator-note">Message or crash note</label>
+                    <label for="orchestrator-note">ACP message or crash note</label>
                     <textarea
                       id="orchestrator-note"
                       name="message"
-                      placeholder="Send a simple orchestrator message, or attach a selected job note once crash context is present."
+                      placeholder="Send a simple ACP message, or attach a selected job note once crash context is present."
                     ></textarea>
                   </div>
                   <div class="button-row">
@@ -1009,7 +1024,23 @@
               </div>
 
               <div class="path-list" id="local-train-path-list"></div>
+              <div class="log-link-row" id="local-train-detail-log-actions"></div>
               <div class="link-list" id="local-train-detail-links" hidden></div>
+              <div class="info-card" id="local-train-provenance-card" hidden>
+                <strong>Summary / provenance</strong>
+                <pre class="summary-text" id="local-train-summary-text"></pre>
+                <div class="path-row">
+                  <strong>input_command</strong>
+                  <code id="local-train-input-command"></code>
+                </div>
+              </div>
+              <div class="info-card" id="local-train-log-pane" hidden>
+                <div class="detail-toolbar">
+                  <strong id="local-train-log-title">Job log</strong>
+                  <a id="local-train-log-raw" href="#" target="_blank" rel="noreferrer">Open raw</a>
+                </div>
+                <pre class="json-block log-block" id="local-train-log-content"></pre>
+              </div>
               <div class="info-card" id="local-train-detail-note-card" hidden>
                 <strong>Crash context</strong>
                 <p id="local-train-detail-note"></p>
@@ -1055,7 +1086,15 @@
       const localTrainDetailStatusText = document.getElementById("local-train-detail-status-text");
       const localTrainDetailMessage = document.getElementById("local-train-detail-message");
       const localTrainPathList = document.getElementById("local-train-path-list");
+      const localTrainDetailLogActions = document.getElementById("local-train-detail-log-actions");
       const localTrainDetailLinks = document.getElementById("local-train-detail-links");
+      const localTrainProvenanceCard = document.getElementById("local-train-provenance-card");
+      const localTrainSummaryText = document.getElementById("local-train-summary-text");
+      const localTrainInputCommand = document.getElementById("local-train-input-command");
+      const localTrainLogPane = document.getElementById("local-train-log-pane");
+      const localTrainLogTitle = document.getElementById("local-train-log-title");
+      const localTrainLogRaw = document.getElementById("local-train-log-raw");
+      const localTrainLogContent = document.getElementById("local-train-log-content");
       const localTrainDetailNoteCard = document.getElementById("local-train-detail-note-card");
       const localTrainDetailNote = document.getElementById("local-train-detail-note");
       const orchestratorEmpty = document.getElementById("orchestrator-empty");
@@ -1230,6 +1269,34 @@
         });
       }
 
+      function renderLocalTrainProvenance(detail) {
+        const summaryText = pickValue(detail.summary_text);
+        const inputCommand = pickValue(detail.input_command);
+        if (!summaryText && !inputCommand) {
+          localTrainProvenanceCard.hidden = true;
+          localTrainSummaryText.textContent = "";
+          localTrainInputCommand.textContent = "";
+          return;
+        }
+        localTrainSummaryText.textContent = summaryText;
+        localTrainInputCommand.textContent = inputCommand;
+        localTrainProvenanceCard.hidden = false;
+      }
+
+      async function renderLocalTrainLog(jobId, streamName, url) {
+        localTrainLogPane.hidden = false;
+        localTrainLogTitle.textContent = `${jobId} ${streamName}`;
+        localTrainLogRaw.href = url;
+        localTrainLogContent.textContent = "Loading log...";
+        const response = await fetch(url, {
+          headers: { Accept: "text/plain" },
+        });
+        if (!response.ok) {
+          throw new Error(`Request failed with ${response.status}`);
+        }
+        localTrainLogContent.textContent = await response.text();
+      }
+
       function updateAttachState() {
         const hasDetail = Boolean(selectedTrainDetail && selectedTrainJobId);
         const linkCount = linksFromPayload(selectedTrainDetail || {}).length;
@@ -1261,8 +1328,16 @@
         localTrainDetailStatus.innerHTML = '<span class="status-dot slate"></span><span id="local-train-detail-status-text">Unknown</span>';
         localTrainDetailMessage.textContent = "No backend message yet.";
         localTrainPathList.replaceChildren();
+        localTrainDetailLogActions.replaceChildren();
         localTrainDetailLinks.hidden = true;
         localTrainDetailLinks.replaceChildren();
+        localTrainProvenanceCard.hidden = true;
+        localTrainSummaryText.textContent = "";
+        localTrainInputCommand.textContent = "";
+        localTrainLogPane.hidden = true;
+        localTrainLogTitle.textContent = "Job log";
+        localTrainLogRaw.href = "#";
+        localTrainLogContent.textContent = "";
         localTrainDetailNoteCard.hidden = true;
         localTrainDetailNote.textContent = "";
         updateAttachState();
@@ -1320,8 +1395,8 @@
             <td>${escapeHtml(pickValue(job.run_name, "-"))}</td>
             <td>
               <div class="table-actions">
-                ${stdoutUrl ? `<a href="${escapeHtml(stdoutUrl)}" target="_blank" rel="noreferrer">std.out</a>` : ""}
-                ${stderrUrl ? `<a href="${escapeHtml(stderrUrl)}" target="_blank" rel="noreferrer">std.err</a>` : ""}
+                ${stdoutUrl ? `<button class="button secondary plan-action" type="button" data-train-job-id="${escapeHtml(jobId)}" data-log-stream="std.out" data-log-url="${escapeHtml(stdoutUrl)}">std.out</button>` : ""}
+                ${stderrUrl ? `<button class="button secondary plan-action" type="button" data-train-job-id="${escapeHtml(jobId)}" data-log-stream="std.err" data-log-url="${escapeHtml(stderrUrl)}">std.err</button>` : ""}
                 ${!stdoutUrl && stdoutPath ? `<code>${escapeHtml(stdoutPath)}</code>` : ""}
                 ${!stderrUrl && stderrPath ? `<code>${escapeHtml(stderrPath)}</code>` : ""}
               </div>
@@ -1349,6 +1424,7 @@
         localTrainDetailStatus.innerHTML = `<span class="status-dot ${tone}"></span><span>${escapeHtml(statusText)}</span>`;
         localTrainDetailMessage.textContent = pickValue(detail.message, detail.orchestrator_message, `Started ${startedAt}`);
         renderPathList(detail);
+        renderLocalTrainProvenance(detail);
         const detailLinks = linksFromPayload(detail);
         if (detailLinks.length > 0) {
           renderLinkList(localTrainDetailLinks, detailLinks);
@@ -1365,6 +1441,12 @@
           localTrainDetailNoteCard.hidden = true;
           localTrainDetailNote.textContent = "";
         }
+        const stdoutUrl = pickValue(detail.stdout_url, detail.std_out_url);
+        const stderrUrl = pickValue(detail.stderr_url, detail.std_err_url);
+        localTrainDetailLogActions.innerHTML = `
+          ${stdoutUrl ? `<button class="button secondary plan-action" type="button" data-train-job-id="${escapeHtml(jobId)}" data-log-stream="std.out" data-log-url="${escapeHtml(stdoutUrl)}">std.out</button>` : ""}
+          ${stderrUrl ? `<button class="button secondary plan-action" type="button" data-train-job-id="${escapeHtml(jobId)}" data-log-stream="std.err" data-log-url="${escapeHtml(stderrUrl)}">std.err</button>` : ""}
+        `;
         updateAttachState();
       }
 
@@ -1375,7 +1457,7 @@
         orchestratorStatusBadge.className = "status-badge";
         orchestratorStatusBadge.innerHTML = `<span class="status-dot ${tone}"></span><span>${escapeHtml(titleCase(payload.status || "unknown"))}</span>`;
         orchestratorUpdatedAt.textContent = pickValue(payload.updated_at, payload.last_seen_at, "No update timestamp yet.");
-        orchestratorMessage.textContent = pickValue(payload.message, "No orchestrator message yet.");
+        orchestratorMessage.textContent = pickValue(payload.message, "No ACP message yet.");
         const links = linksFromPayload(payload);
         if (links.length > 0) {
           renderLinkList(orchestratorLinks, links);
@@ -1696,7 +1778,7 @@
             return;
           }
           orchestratorEmpty.hidden = false;
-          orchestratorEmpty.textContent = `Could not load orchestrator status. ${error.message}`;
+          orchestratorEmpty.textContent = `Could not load ACP status. ${error.message}`;
           orchestratorState.hidden = true;
         }
       }
@@ -1710,7 +1792,7 @@
         localTrainForm.elements.project.value = "kits23";
         localTrainForm.elements.plan_id.value = "3";
         localTrainForm.elements.fold.value = "0";
-        localTrainForm.elements.train_indices.value = "24";
+        localTrainForm.elements.train_indices.value = "";
         localTrainForm.elements.val_every_n_epochs.value = "5";
         localTrainForm.elements.learning_rate.value = "0.0003";
         localTrainForm.elements.run_name.value = "none";
@@ -1722,12 +1804,13 @@
         event.preventDefault();
         clearBanner(localTrainSubmitError);
         localTrainSubmitButton.disabled = true;
-        localTrainSubmitStatus.textContent = "Sending train intent to orchestrator...";
+        localTrainSubmitStatus.textContent = "Sending train intent to ACP...";
+        const trainIndicesValue = localTrainForm.elements.train_indices.value.trim();
         const payload = {
           project: localTrainForm.elements.project.value.trim(),
           plan_id: Number(localTrainForm.elements.plan_id.value),
           fold: Number(localTrainForm.elements.fold.value),
-          train_indices: Number(localTrainForm.elements.train_indices.value),
+          train_indices: trainIndicesValue === "" ? null : Number(trainIndicesValue),
           val_every_n_epochs: Number(localTrainForm.elements.val_every_n_epochs.value),
           learning_rate: localTrainForm.elements.learning_rate.value.trim(),
           run_name: localTrainForm.elements.run_name.value.trim() || "none",
@@ -1747,12 +1830,12 @@
           }
           selectedTrainJobId = pickValue(data.job_id, data.id, "");
           localTrainSubmitStatus.textContent = selectedTrainJobId
-            ? `${pickValue(data.message, "Orchestrator submitted local train.")} Job ${selectedTrainJobId}.`
-            : pickValue(data.message, "Orchestrator returned a workflow breakpoint.");
+            ? `${pickValue(data.message, "ACP submitted local train.")} Job ${selectedTrainJobId}.`
+            : pickValue(data.message, "ACP returned a workflow breakpoint.");
           await refreshLocalTrain();
         } catch (error) {
-          setBanner(localTrainSubmitError, `Could not process orchestrator train request. ${error.message}`);
-          localTrainSubmitStatus.textContent = "Orchestrator train request failed.";
+          setBanner(localTrainSubmitError, `Could not process ACP train request. ${error.message}`);
+          localTrainSubmitStatus.textContent = "ACP train request failed.";
         } finally {
           localTrainSubmitButton.disabled = false;
         }
@@ -1762,7 +1845,7 @@
         clearBanner(orchestratorMessageError);
         const message = orchestratorNote.value.trim();
         if (!message) {
-          setBanner(orchestratorMessageError, "Enter a message before sending it to the orchestrator.");
+          setBanner(orchestratorMessageError, "Enter a message before sending it to ACP.");
           return;
         }
         if (attachToJob && !selectedTrainJobId) {
@@ -1772,7 +1855,7 @@
         orchestratorAttach.disabled = true;
         orchestratorMessageStatus.textContent = attachToJob
           ? `Attaching note to job ${selectedTrainJobId}...`
-          : "Sending orchestrator message...";
+          : "Sending ACP message...";
         const payload = attachToJob
           ? { message, job_id: selectedTrainJobId, mode: "job_note" }
           : { message, mode: "message" };
@@ -1790,14 +1873,14 @@
             throw new Error(pickValue(data.detail, data.message, `Request failed with ${response.status}`));
           }
           orchestratorNote.value = "";
-          orchestratorMessageStatus.textContent = pickValue(data.message, "Orchestrator message sent.");
+          orchestratorMessageStatus.textContent = pickValue(data.message, "ACP message sent.");
           await fetchOrchestratorState();
           if (selectedTrainJobId) {
             await fetchLocalTrainJobDetail(selectedTrainJobId);
           }
         } catch (error) {
-          setBanner(orchestratorMessageError, `Could not send orchestrator message. ${error.message}`);
-          orchestratorMessageStatus.textContent = "Orchestrator message failed.";
+          setBanner(orchestratorMessageError, `Could not send ACP message. ${error.message}`);
+          orchestratorMessageStatus.textContent = "ACP message failed.";
         } finally {
           updateAttachState();
         }
@@ -1837,13 +1920,28 @@
         refreshLocalTrain();
       });
 
-      localTrainTableBody.addEventListener("click", (event) => {
+      localTrainTableBody.addEventListener("click", async (event) => {
+        const logButton = event.target.closest("[data-log-url]");
+        if (logButton) {
+          selectedTrainJobId = logButton.dataset.trainJobId;
+          await fetchLocalTrainJobDetail(selectedTrainJobId);
+          await renderLocalTrainLog(selectedTrainJobId, logButton.dataset.logStream, logButton.dataset.logUrl);
+          return;
+        }
         const button = event.target.closest("[data-train-job-id]");
         if (!button) {
           return;
         }
         selectedTrainJobId = button.dataset.trainJobId;
         fetchLocalTrainJobDetail(selectedTrainJobId);
+      });
+
+      localTrainDetailLogActions.addEventListener("click", async (event) => {
+        const logButton = event.target.closest("[data-log-url]");
+        if (!logButton) {
+          return;
+        }
+        await renderLocalTrainLog(logButton.dataset.trainJobId, logButton.dataset.logStream, logButton.dataset.logUrl);
       });
 
       orchestratorMessageForm.addEventListener("submit", async (event) => {

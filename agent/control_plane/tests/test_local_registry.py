@@ -5,8 +5,10 @@ import sys
 import time
 from pathlib import Path
 
+import agent.control_plane.hpc as hpc
 import agent.control_plane.local_registry as local_registry
 from agent.control_plane.local_registry import (
+    LOCAL_LOG_ROOT,
     LOCAL_LOG_ROOT_FALLBACK,
     _submit_local_train_retry_job,
     build_local_job_crash_packet,
@@ -123,3 +125,20 @@ def test_logs_root_falls_back_when_primary_unavailable(monkeypatch, tmp_path: Pa
     resolved = logs_root()
 
     assert resolved == fallback
+
+
+def test_local_registry_defaults_are_split_from_hpc() -> None:
+    assert LOCAL_LOG_ROOT == Path("/s/agent_rw/local_acp_logs")
+    assert LOCAL_LOG_ROOT_FALLBACK == Path.home() / ".agent/local_acp_logs"
+
+
+def test_dashboard_context_points_to_fran_jobs_page(monkeypatch) -> None:
+    monkeypatch.setenv("FRAN_JOBS_PAGE_URL", "http://fran.local/jobs")
+
+    payload = hpc.dashboard_context()
+
+    assert payload["message"] == "FRAN webapp jobs page is the canonical status surface for submitted HPC jobs."
+    assert payload["start_command"] == "python -m webbrowser http://fran.local/jobs"
+    assert payload["status_command"] == "open http://fran.local/jobs to inspect job status in the FRAN webapp"
+    assert payload["url_command"] == "echo http://fran.local/jobs"
+    assert payload["url"] == "http://fran.local/jobs"

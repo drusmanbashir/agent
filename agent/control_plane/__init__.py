@@ -1,5 +1,6 @@
 __all__ = [
     "datasource_ready",
+    "debug_local_job_crash",
     "local_job_crash_packet",
     "local_job_list",
     "local_job_status",

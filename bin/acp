@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="/home/ub/code/agent"
+cd "${REPO_ROOT}"
+exec python -m agent.control_plane.cli_app "$@"

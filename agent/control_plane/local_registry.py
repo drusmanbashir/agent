@@ -16,8 +16,8 @@ AGENT_REPO_ROOT = Path("/home/ub/code/agent")
 FRAN_REPO_ROOT = Path("/home/ub/code/fran")
 LOCAL_TRAIN_PYTHON = Path("/home/ub/mambaforge/envs/dl/bin/python")
 LOCAL_TRAIN_ENTRYPOINT = Path("/home/ub/code/fran/fran/run/training/train_retry.py")
-LOCAL_LOG_ROOT = Path("/s/agent_rw/hpc_logs")
-LOCAL_LOG_ROOT_FALLBACK = Path.home() / ".agent/hpc_logs"
+LOCAL_LOG_ROOT = Path("/s/agent_rw/local_acp_logs")
+LOCAL_LOG_ROOT_FALLBACK = Path.home() / ".agent/local_acp_logs"
 LOCAL_ORCH_PROVIDER = "ollama"
 LOCAL_ORCH_MODEL = ""
 LOCAL_ORCH_ESCALATION_TARGET = ""
@@ -192,7 +192,7 @@ def orchestrator_messages_path(root: Path | None = None) -> Path:
 def default_orchestrator_state() -> dict[str, object]:
     return {
         "status": "ready",
-        "message": "Local orchestrator ready. provider=ollama",
+        "message": "Local ACP ready. provider=ollama",
         "provider": LOCAL_ORCH_PROVIDER,
         "model": LOCAL_ORCH_MODEL,
         "escalation_target": LOCAL_ORCH_ESCALATION_TARGET,

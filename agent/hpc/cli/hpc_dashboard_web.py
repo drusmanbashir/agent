@@ -30,6 +30,8 @@ DEFAULT_PORT = 8765
 SORT_COLUMNS = ("job_id", "state", "job_name", "submitted_at", "last_polled_at", "exit_code", "finished_at")
 LIMIT_OPTIONS = ("30", "50", "100", "all")
 DEFAULT_LIMIT = "30"
+SOURCE_SCOPES = ("hpc", "local")
+DEFAULT_SOURCE_SCOPE = "hpc"
 
 
 def now_text() -> str:
@@ -100,13 +102,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             sort_key = params["sort"][0] if "sort" in params else default_sort_key(active_tab)
             sort_dir = params["dir"][0] if "dir" in params else "desc"
             limit = params["limit"][0] if "limit" in params else DEFAULT_LIMIT
-            self._send_html(self._render_index(selected_job_id, active_tab, sort_key, sort_dir, limit))
+            scope = params["scope"][0] if "scope" in params else DEFAULT_SOURCE_SCOPE
+            self._send_html(self._render_index(selected_job_id, active_tab, sort_key, sort_dir, limit, scope))
             return
         if parsed.path == "/healthz":
             self._send_text("ok\n")
             return
         if parsed.path.startswith("/jobs/"):
-            self._serve_job_asset(parsed.path)
+            self._serve_job_asset(parsed)
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -118,17 +121,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         sort_key = form["sort"][0] if "sort" in form else default_sort_key(active_tab)
         sort_dir = form["dir"][0] if "dir" in form else "desc"
         limit = form["limit"][0] if "limit" in form else DEFAULT_LIMIT
+        scope = form["scope"][0] if "scope" in form else DEFAULT_SOURCE_SCOPE
         if parsed.path == "/poll_selected":
-            self._handle_poll_selected(selected_job_id, active_tab, sort_key, sort_dir, limit)
+            self._handle_poll_selected(selected_job_id, active_tab, sort_key, sort_dir, limit, scope)
             return
         if parsed.path == "/poll_all_active":
-            self._handle_poll_all_active(active_tab, sort_key, sort_dir, limit)
+            self._handle_poll_all_active(active_tab, sort_key, sort_dir, limit, scope)
             return
         if parsed.path == "/cancel_selected":
-            self._handle_cancel_selected(selected_job_id, active_tab, sort_key, sort_dir, limit)
+            self._handle_cancel_selected(selected_job_id, active_tab, sort_key, sort_dir, limit, scope)
             return
         if parsed.path == "/resubmit_selected":
-            self._handle_resubmit_selected(selected_job_id, active_tab, sort_key, sort_dir, limit)
+            self._handle_resubmit_selected(selected_job_id, active_tab, sort_key, sort_dir, limit, scope)
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -137,50 +141,50 @@ class DashboardHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(size).decode("utf-8")
         return parse_qs(body, keep_blank_values=True)
 
-    def _handle_poll_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str) -> None:
+    def _handle_poll_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> None:
         if not selected_job_id:
-            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": "Select a job first."})
+            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": "Select a job first."})
             return
         job = self.registry.find(selected_job_id)
         if job is None:
-            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": f"Job {selected_job_id} is no longer in the registry."})
+            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": f"Job {selected_job_id} is no longer in the registry."})
             return
         message = self._start_poll_thread([job.job_id], f"poll selected {job.job_id}")
-        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": message})
+        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": message})
 
-    def _handle_poll_all_active(self, active_tab: str, sort_key: str, sort_dir: str, limit: str) -> None:
-        jobs = self.registry.active_jobs()
+    def _handle_poll_all_active(self, active_tab: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> None:
+        jobs = jobs_for_scope(self.registry.active_jobs(), scope)
         if not jobs:
-            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": "No active jobs to poll."})
+            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": "No active jobs to poll."})
             return
         job_ids = [job.job_id for job in jobs]
         message = self._start_job_action_thread(job_ids, f"poll all active ({len(job_ids)})", POLL_SCRIPT)
-        self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": message})
+        self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": message})
 
-    def _handle_cancel_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str) -> None:
+    def _handle_cancel_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> None:
         if active_tab != "active":
-            self._redirect("/", {"selected": selected_job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": "Cancel Selected is available only on Active Jobs."})
+            self._redirect("/", {"selected": selected_job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": "Cancel Selected is available only on Active Jobs."})
             return
         if not selected_job_id:
-            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": "Select an active job first."})
+            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": "Select an active job first."})
             return
         job = self.registry.find(selected_job_id)
         if job is None:
-            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": f"Job {selected_job_id} is no longer in the registry."})
+            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": f"Job {selected_job_id} is no longer in the registry."})
             return
         if job.closed:
-            self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": f"Job {job.job_id} is closed and cannot be cancelled."})
+            self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": f"Job {job.job_id} is closed and cannot be cancelled."})
             return
         message = self._start_cancel_thread(job)
-        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": message})
+        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": message})
 
-    def _handle_resubmit_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str) -> None:
+    def _handle_resubmit_selected(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> None:
         if not selected_job_id:
-            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": "Select a job first."})
+            self._redirect("/", {"selected": "", "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": "Select a job first."})
             return
         job = self.registry.find(selected_job_id)
         if job is None:
-            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": f"Job {selected_job_id} is no longer in the registry."})
+            self._redirect("/", {"tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": f"Job {selected_job_id} is no longer in the registry."})
             return
         if not job.has_submit_provenance:
             self._redirect(
@@ -191,12 +195,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "sort": sort_key,
                     "dir": sort_dir,
                     "limit": limit,
+                    "scope": scope,
                     "message": f"Job {job.job_id} has no resubmit provenance in the registry.",
                 },
             )
             return
         message = self._start_job_action_thread([job.job_id], f"resubmit selected {job.job_id}", RESUBMIT_SCRIPT)
-        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "message": message})
+        self._redirect("/", {"selected": job.job_id, "tab": active_tab, "sort": sort_key, "dir": sort_dir, "limit": limit, "scope": scope, "message": message})
 
     def _start_job_action_thread(self, job_ids: list[str], label: str, script_path: Path) -> str:
         detail = " ".join(job_ids)
@@ -275,8 +280,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         threading.Thread(target=run_cancel, daemon=True).start()
         return f"Started {label}."
 
-    def _serve_job_asset(self, path: str) -> None:
-        parts = [part for part in path.split("/") if part]
+    def _serve_job_asset(self, parsed: object) -> None:
+        parts = [part for part in parsed.path.split("/") if part]
         if len(parts) != 3:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
@@ -298,7 +303,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_path(self, job: JobRecord, asset: str, path: Path) -> None:
         if not path.exists():
-            self._send_html(render_missing_job_asset_page(job, asset, path))
+            params = parse_qs(urlparse(self.path).query)
+            scope = params["scope"][0] if "scope" in params else source_scope_for_job(job)
+            self._send_html(render_missing_job_asset_page(job, asset, path, scope))
             return
         self._send_text(path.read_text(encoding="utf-8", errors="replace"))
 
@@ -326,10 +333,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
-    def _render_index(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str) -> str:
+    def _render_index(self, selected_job_id: str, active_tab: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> str:
         active_jobs, closed_jobs = self.registry.split_jobs()
+        scope = normalized_source_scope(scope)
+        active_jobs = jobs_for_scope(active_jobs, scope)
+        closed_jobs = jobs_for_scope(closed_jobs, scope)
         snapshot = self.action_state.snapshot()
         selected_job = self.registry.find(selected_job_id) if selected_job_id else None
+        if selected_job is not None and source_scope_for_job(selected_job) != scope:
+            selected_job = None
         toolbar_message = parse_qs(urlparse(self.path).query).get("message", [""])[0]
         jobs = active_jobs if active_tab == "active" else closed_jobs
         jobs = sort_jobs(jobs, active_tab, sort_key, sort_dir)
@@ -379,6 +391,55 @@ th {{
   align-items: center;
   gap: 10px;
   margin: 10px 0 12px;
+}}
+.scope-panel {{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}}
+.scope-toggle {{
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(90px, 1fr));
+  padding: 4px;
+  border: 1px solid #c9d4e6;
+  border-radius: 999px;
+  background: #eef2f8;
+}}
+.scope-toggle::before {{
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: #124a8a;
+  transform: translateX({"100%" if scope == "local" else "0"});
+  transition: transform 0.18s ease;
+}}
+.scope-option {{
+  position: relative;
+  z-index: 1;
+}}
+.scope-option input {{
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}}
+.scope-option span {{
+  display: block;
+  padding: 8px 18px;
+  border-radius: 999px;
+  text-align: center;
+  font-weight: 600;
+  color: #5f6c7a;
+  cursor: pointer;
+}}
+.scope-option input:checked + span {{
+  color: #fff;
 }}
 .toolbar form, .toolbar a {{
   margin: 0;
@@ -452,6 +513,19 @@ pre {{
 </div>
 <div class="grid">
   <form method="get" action="/" class="panel">
+    <div class="scope-panel">
+      <strong>Source</strong>
+      <div class="scope-toggle">
+        <label class="scope-option">
+          <input type="radio" name="scope" value="hpc"{" checked" if scope == "hpc" else ""} onchange="this.form.submit()">
+          <span>HPC</span>
+        </label>
+        <label class="scope-option">
+          <input type="radio" name="scope" value="local"{" checked" if scope == "local" else ""} onchange="this.form.submit()">
+          <span>Local</span>
+        </label>
+      </div>
+    </div>
     <div class="subtoolbar">
       <input type="hidden" name="tab" value="{escape_text(active_tab)}">
       <input type="hidden" name="selected" value="{escape_text(selected_job_id)}">
@@ -464,9 +538,9 @@ pre {{
   </form>
   <form id="jobs-form" method="post" action="/poll_selected">
     <div class="toolbar">
-      <a class="button" href="/?tab={escape_text(active_tab)}&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key)}&dir={escape_text(sort_dir)}&limit={escape_text(limit)}">Refresh</a>
-      <a class="{active_class}" href="/?tab=active&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key if active_tab == 'active' else default_sort_key('active'))}&dir={escape_text(sort_dir if active_tab == 'active' else 'desc')}&limit={escape_text(limit)}">Active Jobs ({len(active_jobs)})</a>
-      <a class="{closed_class}" href="/?tab=closed&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key if active_tab == 'closed' else default_sort_key('closed'))}&dir={escape_text(sort_dir if active_tab == 'closed' else 'desc')}&limit={escape_text(limit)}">Closed Jobs ({len(closed_jobs)})</a>
+      <a class="button" href="/?tab={escape_text(active_tab)}&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key)}&dir={escape_text(sort_dir)}&limit={escape_text(limit)}&scope={escape_text(scope)}">Refresh</a>
+      <a class="{active_class}" href="/?tab=active&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key if active_tab == 'active' else default_sort_key('active'))}&dir={escape_text(sort_dir if active_tab == 'active' else 'desc')}&limit={escape_text(limit)}&scope={escape_text(scope)}">Active Jobs ({len(active_jobs)})</a>
+      <a class="{closed_class}" href="/?tab=closed&selected={escape_text(selected_job_id)}&sort={escape_text(sort_key if active_tab == 'closed' else default_sort_key('closed'))}&dir={escape_text(sort_dir if active_tab == 'closed' else 'desc')}&limit={escape_text(limit)}&scope={escape_text(scope)}">Closed Jobs ({len(closed_jobs)})</a>
       <input class="button" type="submit" value="Poll Selected">
       <button class="button" type="submit" form="poll-all-active-form" formaction="/poll_all_active" formmethod="post">Poll All Active</button>
       {cancel_button}
@@ -476,9 +550,10 @@ pre {{
     <input type="hidden" name="sort" value="{escape_text(sort_key)}">
     <input type="hidden" name="dir" value="{escape_text(sort_dir)}">
     <input type="hidden" name="limit" value="{escape_text(limit)}">
+    <input type="hidden" name="scope" value="{escape_text(scope)}">
     <section class="panel">
       <h2>{"Active Jobs" if active_tab == "active" else "Closed Jobs"} ({len(jobs)})</h2>
-      {render_jobs_table(visible_jobs, selected_job_id, active_tab, sort_key, sort_dir, limit, updating_job_ids(snapshot))}
+      {render_jobs_table(visible_jobs, selected_job_id, active_tab, sort_key, sort_dir, limit, scope, updating_job_ids(snapshot))}
     </section>
   </form>
 </div>
@@ -487,10 +562,11 @@ pre {{
   <input type="hidden" name="sort" value="{escape_text(sort_key)}">
   <input type="hidden" name="dir" value="{escape_text(sort_dir)}">
   <input type="hidden" name="limit" value="{escape_text(limit)}">
+  <input type="hidden" name="scope" value="{escape_text(scope)}">
 </form>
 <section class="panel">
   <h2>Selected Job</h2>
-  {render_selected_job(selected_job)}
+  {render_selected_job(selected_job, active_tab, scope)}
 </section>
 </body>
 </html>
@@ -557,6 +633,27 @@ def normalized_limit(limit: str) -> str:
     return DEFAULT_LIMIT
 
 
+def normalized_source_scope(scope: str) -> str:
+    if scope in SOURCE_SCOPES:
+        return scope
+    return DEFAULT_SOURCE_SCOPE
+
+
+def is_local_job(job: JobRecord) -> bool:
+    return job.resolved_input_method == "local_train_retry" or job.job_id.startswith("local-")
+
+
+def source_scope_for_job(job: JobRecord) -> str:
+    if is_local_job(job):
+        return "local"
+    return "hpc"
+
+
+def jobs_for_scope(jobs: list[JobRecord], scope: str) -> list[JobRecord]:
+    scope = normalized_source_scope(scope)
+    return [job for job in jobs if source_scope_for_job(job) == scope]
+
+
 def limit_jobs(jobs: list[JobRecord], limit: str) -> list[JobRecord]:
     if limit == "all":
         return jobs
@@ -588,7 +685,7 @@ def sort_jobs(jobs: list[JobRecord], active_tab: str, sort_key: str, sort_dir: s
     return sorted(jobs, key=lambda job: sort_value(job, sort_key), reverse=reverse)
 
 
-def header_link(label: str, column: str, active_tab: str, selected_job_id: str, sort_key: str, sort_dir: str, limit: str) -> str:
+def header_link(label: str, column: str, active_tab: str, selected_job_id: str, sort_key: str, sort_dir: str, limit: str, scope: str) -> str:
     current_key = normalized_sort_key(sort_key, active_tab)
     current_dir = normalized_sort_dir(sort_dir)
     limit = normalized_limit(limit)
@@ -603,6 +700,7 @@ def header_link(label: str, column: str, active_tab: str, selected_job_id: str, 
         f"&sort={escape_text(column)}"
         f"&dir={escape_text(next_dir)}"
         f"&limit={escape_text(limit)}"
+        f"&scope={escape_text(scope)}"
     )
     return f'<a href="{href}">{escape_text(label + arrow)}</a>'
 
@@ -619,7 +717,7 @@ def render_limit_select(limit: str) -> str:
 def updating_job_ids(snapshot: dict[str, str]) -> set[str]:
     if snapshot["running"] != "yes":
         return set()
-    return {part for part in snapshot["detail"].split() if part.isdigit()}
+    return set(snapshot["detail"].split())
 
 
 def render_poll_cell(job: JobRecord, updating_ids: set[str]) -> str:
@@ -635,6 +733,7 @@ def render_jobs_table(
     sort_key: str,
     sort_dir: str,
     limit: str,
+    scope: str,
     updating_ids: set[str],
 ) -> str:
     sort_key = normalized_sort_key(sort_key, active_tab)
@@ -648,7 +747,8 @@ def render_jobs_table(
         rows.append(
             "<tr>"
             f"<td><input type=\"radio\" name=\"job_id\" value=\"{escape_text(job.job_id)}\"{checked}></td>"
-            f"<td><a href=\"/?tab={escape_text(active_tab)}&selected={escape_text(job.job_id)}&sort={escape_text(sort_key)}&dir={escape_text(sort_dir)}&limit={escape_text(limit)}\">{escape_text(job.job_id)}</a></td>"
+            f"<td><a href=\"/?tab={escape_text(active_tab)}&selected={escape_text(job.job_id)}&sort={escape_text(sort_key)}&dir={escape_text(sort_dir)}&limit={escape_text(limit)}&scope={escape_text(scope)}\">{escape_text(job.job_id)}</a></td>"
+            f"<td>{escape_text(source_scope_for_job(job))}</td>"
             f"<td>{escape_text(job.state)}</td>"
             f"<td>{escape_text(job.job_name)}</td>"
             f"<td>{escape_text(job.display_submitted_at)}</td>"
@@ -661,20 +761,21 @@ def render_jobs_table(
         "<table>"
         "<thead><tr>"
         "<th>Select</th>"
-        f"<th>{header_link('Job ID', 'job_id', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('State', 'state', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('Job', 'job_name', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('Submitted', 'submitted_at', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('POLL', 'last_polled_at', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('Exit', 'exit_code', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
-        f"<th>{header_link('Finished', 'finished_at', active_tab, selected_job_id, sort_key, sort_dir, limit)}</th>"
+        f"<th>{header_link('Job ID', 'job_id', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        "<th>Source</th>"
+        f"<th>{header_link('State', 'state', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        f"<th>{header_link('Job', 'job_name', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        f"<th>{header_link('Submitted', 'submitted_at', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        f"<th>{header_link('POLL', 'last_polled_at', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        f"<th>{header_link('Exit', 'exit_code', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
+        f"<th>{header_link('Finished', 'finished_at', active_tab, selected_job_id, sort_key, sort_dir, limit, scope)}</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows)}</tbody>"
         "</table>"
     )
 
 
-def render_selected_job(job: JobRecord | None) -> str:
+def render_selected_job(job: JobRecord | None, active_tab: str, scope: str) -> str:
     if job is None:
         return "<p class=\"muted\">Select a job to inspect local paths and logs.</p>"
     job_meta = read_key_value_file(job.job_meta_path)
@@ -693,9 +794,9 @@ def render_selected_job(job: JobRecord | None) -> str:
             lines.append("[worker.meta]")
             lines.extend(f"{key}: {value}" for key, value in filtered_worker_meta)
     links = [
-        f"<a href=\"/jobs/{escape_text(job.job_id)}/stdout\">stdout</a>",
-        f"<a href=\"/jobs/{escape_text(job.job_id)}/stderr\">stderr</a>",
-        f"<a href=\"/jobs/{escape_text(job.job_id)}/poll-log\">poll.log</a>",
+        f"<a href=\"/jobs/{escape_text(job.job_id)}/stdout?scope={escape_text(scope)}&tab={escape_text(active_tab)}\">stdout</a>",
+        f"<a href=\"/jobs/{escape_text(job.job_id)}/stderr?scope={escape_text(scope)}&tab={escape_text(active_tab)}\">stderr</a>",
+        f"<a href=\"/jobs/{escape_text(job.job_id)}/poll-log?scope={escape_text(scope)}&tab={escape_text(active_tab)}\">poll.log</a>",
     ]
     if job.has_submit_provenance:
         links.append("resubmit: registry provenance available")
@@ -775,9 +876,9 @@ def alternate_local_log_paths(job: JobRecord, asset: str) -> list[Path]:
     return sorted(path for path in job.job_dir.iterdir() if path.is_file() and path.name.endswith(suffix))
 
 
-def render_missing_job_asset_page(job: JobRecord, asset: str, path: Path) -> str:
+def render_missing_job_asset_page(job: JobRecord, asset: str, path: Path, scope: str) -> str:
     tab = "closed" if job.closed else "active"
-    back_href = f"/?tab={escape_text(tab)}&selected={escape_text(job.job_id)}"
+    back_href = f"/?tab={escape_text(tab)}&selected={escape_text(job.job_id)}&scope={escape_text(scope)}"
     poll_cmd = f"agent/hpc/cli/hpc_poll_logs.sh {job.job_id}"
     raw_paths = alternate_local_log_paths(job, asset)
     if raw_paths:

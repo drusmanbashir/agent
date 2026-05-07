@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -15,25 +16,25 @@ HPC_PROJECT_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/project_init.sh")
 HPC_TRAIN_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/train.sh")
 HPC_DASH = Path("/home/ub/code/agent/agent/hpc/cli/hdash")
 HPC_REGISTRY = Path("/s/agent_rw/hpc_logs/job_registry.tsv")
+FRAN_JOBS_PAGE_URL = "http://127.0.0.1:8000/hpc/jobs"
 
 
 def hpc_log_root() -> Path:
     return HPC_REGISTRY.parent
 
 
+def fran_jobs_page_url() -> str:
+    url = os.environ.get("FRAN_JOBS_PAGE_URL", FRAN_JOBS_PAGE_URL).strip()
+    return url or FRAN_JOBS_PAGE_URL
+
+
 def dashboard_context() -> dict[str, str | None]:
-    url_proc = subprocess.run(
-        [str(HPC_DASH), "url"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    url = url_proc.stdout.strip() if url_proc.returncode == 0 else None
+    url = fran_jobs_page_url()
     return {
-        "message": "Existing HPC dashboard remains the log/status surface for submitted HPC and local mirrored jobs.",
-        "start_command": f"{HPC_DASH} start",
-        "status_command": f"{HPC_DASH} status",
-        "url_command": f"{HPC_DASH} url",
+        "message": "FRAN webapp jobs page is the canonical status surface for submitted HPC jobs.",
+        "start_command": f"python -m webbrowser {url}",
+        "status_command": f"open {url} to inspect job status in the FRAN webapp",
+        "url_command": f"echo {url}",
         "url": url,
         "log_root": str(hpc_log_root()),
     }

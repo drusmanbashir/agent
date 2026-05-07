@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from agent.control_plane.models import BLOCKED, STATUSES, StatusResult, TIMED_OUT
+import agent.control_plane.service as service
 import agent.control_plane.web as web
 
 
@@ -40,7 +41,7 @@ def test_base_context_includes_local_train_defaults(monkeypatch) -> None:
         "project": "kits23",
         "plan_id": 3,
         "fold": 0,
-        "train_indices": 24,
+        "train_indices": None,
         "val_every_n_epochs": 5,
         "learning_rate": "0.0003",
         "run_name": "none",
@@ -71,7 +72,7 @@ def test_index_renders_local_train_slice(monkeypatch) -> None:
                 "project": "kits23",
                 "plan_id": 3,
                 "fold": 0,
-                "train_indices": 24,
+                "train_indices": None,
                 "val_every_n_epochs": 5,
                 "learning_rate": "0.0003",
                 "run_name": "none",
@@ -105,6 +106,8 @@ def test_index_renders_local_train_slice(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert "Local Train" in response.text
+    assert "ACP" in response.text
+    assert "Ask ACP to resolve train prerequisites first" in response.text
     assert "Use kits23 plan 3 test" in response.text
     assert 'data-orchestrator-request-api="/api/orchestrator/requests/train"' in response.text
     assert 'data-train-jobs-api="/api/local-train/jobs"' in response.text
@@ -138,7 +141,7 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
             "plan_id": 3,
             "mode": "hpc",
             "fold": 0,
-            "train_indices": 24,
+            "train_indices": None,
             "val_every_n_epochs": 5,
             "learning_rate": "0.0003",
             "run_name": "none",
@@ -160,3 +163,66 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
     assert calls[0]["mode"] == "hpc"
     assert calls[0]["learning_rate"] == 0.0003
     assert calls[0]["run_name"] is None
+
+
+def test_local_job_detail_exposes_acp_provenance(monkeypatch) -> None:
+    def fake_crash_packet(job_id: str, tail_lines: int) -> dict:
+        return {
+            "job_id": job_id,
+            "status": "running",
+            "message": "Job is running locally.",
+            "job": {
+                "job_id": job_id,
+                "job_name": "train_kits23_p3_f0",
+                "submitted_at": "2026-05-06T10:00:00+01:00",
+                "finished_at": "-",
+                "last_polled_at": "2026-05-06T10:01:00+01:00",
+                "job_dir": "/tmp/local-123",
+                "stdout": "/tmp/local-123/std.out",
+                "stderr": "/tmp/local-123/std.err",
+            },
+            "job_meta": {
+                "job_name": "train_kits23_p3_f0",
+                "input_method": "local_train_retry",
+                "submit_argv": "python train_retry.py --project kits23",
+                "project_title": "kits23",
+                "plan": "3",
+                "fold": "0",
+                "run_name": "none",
+            },
+            "worker_meta": {
+                "worker_state": "running",
+            },
+            "orchestrator": {
+                "provider": "ollama",
+                "model": "mistral",
+                "escalation_target": "gpu-owner",
+            },
+            "stderr_tail": ["stderr tail"],
+            "note_context": "note",
+        }
+
+    monkeypatch.setattr(service, "build_local_job_crash_packet", fake_crash_packet)
+
+    detail = service.local_job_detail("local-123")
+
+    assert detail["summary_text"] == "\n".join(
+        [
+            "job=local-123",
+            "job_name=train_kits23_p3_f0",
+            "input_method=local_train_retry",
+            "project=kits23",
+            "plan=3",
+            "fold=0",
+            "run_name=none",
+            "worker_state=running",
+            "acp_provider=ollama",
+            "acp_model=mistral",
+            "acp_escalation_target=gpu-owner",
+        ]
+    )
+    assert detail["input_command"] == "python train_retry.py --project kits23"
+    assert detail["input_method"] == "local_train_retry"
+    assert detail["job_name"] == "train_kits23_p3_f0"
+    assert detail["acp"] == {"provider": "ollama", "model": "mistral", "escalation_target": "gpu-owner"}
+    assert detail["provenance"]["job_meta"]["project_title"] == "kits23"

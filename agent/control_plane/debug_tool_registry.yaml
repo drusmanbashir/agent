@@ -1,0 +1,25 @@
+tools:
+  - name: fran_cuda_oom
+    module: fran.debugging.cuda_oom
+    runnable: fran.run.debugging.cuda_oom
+    stages:
+      - train
+    failure_classes:
+      - train_failure
+    stderr_patterns:
+      - CUDA out of memory
+      - CUBLAS_STATUS_ALLOC_FAILED
+    summary: Inspect batch, patch, and allocator pressure for CUDA OOM failures.
+  - name: fran_import_sanity
+    module: fran.debugging.import_sanity
+    runnable: fran.run.debugging.import_sanity
+    stages:
+      - train
+      - preproc
+    failure_classes:
+      - launch_failure
+      - train_failure
+    stderr_patterns:
+      - ModuleNotFoundError
+      - ImportError
+    summary: Validate Python import paths and missing-package failures before escalation.

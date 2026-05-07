@@ -45,7 +45,7 @@ def base_context(request: Request) -> dict:
             "project": "kits23",
             "plan_id": 3,
             "fold": 0,
-            "train_indices": 24,
+            "train_indices": None,
             "val_every_n_epochs": 5,
             "learning_rate": "0.0003",
             "run_name": "none",
@@ -76,6 +76,19 @@ def base_context(request: Request) -> dict:
         },
         "datasource_result": None,
         "project_result": None,
+    }
+
+
+def acp_context(request: Request) -> dict:
+    return {
+        "request": request,
+        "main_dashboard_url": "/",
+        "acp_api": {
+            "status": "/api/acp/status",
+            "jobs": "/api/acp/jobs",
+            "job_detail_prefix": "/api/acp/jobs",
+            "message": "/api/acp/messages",
+        },
     }
 
 
@@ -124,6 +137,12 @@ def train_status_result(payload: dict[str, object]) -> dict[str, object]:
 async def index(request: Request):
     context = await run_in_threadpool(base_context, request)
     return templates.TemplateResponse(request, "index.html", context)
+
+
+@app.get("/acp", response_class=HTMLResponse)
+async def acp_index(request: Request):
+    context = await run_in_threadpool(acp_context, request)
+    return templates.TemplateResponse(request, "acp.html", context)
 
 
 @app.get("/api/projects")
@@ -175,27 +194,32 @@ async def project_preproc_api(
 
 
 @app.post("/api/orchestrator/requests/train")
+@app.post("/api/acp/requests/train")
 async def orchestrator_train_request_api(request: TrainRequest):
     payload = await run_in_threadpool(orchestrator_train_request, **request.service_kwargs())
     return train_status_result(payload)
 
 
 @app.get("/api/local-train/jobs")
+@app.get("/api/acp/jobs")
 async def local_train_jobs_api(limit: int = 25):
     return await run_in_threadpool(local_job_list, limit)
 
 
 @app.get("/api/local-train/jobs/{job_id}")
+@app.get("/api/acp/jobs/{job_id}")
 async def local_train_job_detail_api(job_id: str):
     return await run_in_threadpool(local_job_detail, job_id)
 
 
 @app.get("/api/local-train/jobs/{job_id}/crash")
+@app.get("/api/acp/jobs/{job_id}/crash")
 async def local_train_job_crash_api(job_id: str, tail_lines: int = 200):
     return await run_in_threadpool(local_job_crash_packet, job_id, tail_lines)
 
 
 @app.get("/api/local-train/jobs/{job_id}/stdout")
+@app.get("/api/acp/jobs/{job_id}/stdout")
 async def local_train_job_stdout_api(job_id: str):
     payload = await run_in_threadpool(local_job_detail, job_id)
     stdout_path = payload.get("stdout_path")
@@ -205,6 +229,7 @@ async def local_train_job_stdout_api(job_id: str):
 
 
 @app.get("/api/local-train/jobs/{job_id}/stderr")
+@app.get("/api/acp/jobs/{job_id}/stderr")
 async def local_train_job_stderr_api(job_id: str):
     payload = await run_in_threadpool(local_job_detail, job_id)
     stderr_path = payload.get("stderr_path")
@@ -214,11 +239,13 @@ async def local_train_job_stderr_api(job_id: str):
 
 
 @app.get("/api/local-train/orchestrator")
+@app.get("/api/acp/status")
 async def local_orchestrator_api():
     return await run_in_threadpool(local_orchestrator_status)
 
 
 @app.post("/api/local-train/orchestrator/messages")
+@app.post("/api/acp/messages")
 async def local_orchestrator_message_api(
     message: str = Body(...),
     mode: str = Body("message"),

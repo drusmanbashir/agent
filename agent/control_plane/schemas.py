@@ -22,7 +22,7 @@ class TrainRequest(BaseModel):
     cache_rate: float = 0.0
     ds_type: str | None = None
     val_every_n_epochs: int = 5
-    train_indices: int | None = 24
+    train_indices: int | None = None
     bsf: bool = True
     max_retries: int = 3
     step: int = 1

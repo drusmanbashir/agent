@@ -25,6 +25,18 @@ This repo uses a UV workspace:
 ## Quick Start
 Install/run each agent from its own folder.
 
+### Agent Control Plane
+Path: `agent/control_plane`
+
+The local Agent Control Plane (ACP) owns local FRAN train workflow intent, job provenance, stdout/stderr access, and crash/debug handoff. Route and file names keep the existing local-train/orchestrator identifiers for compatibility; user-facing local FRAN wording refers to ACP.
+
+Operator CLI:
+```bash
+/home/ub/code/agent/bin/acp status
+/home/ub/code/agent/bin/acp ask "train kits23 plan 3 fold 0 lr 0.0003"
+/home/ub/code/agent/bin/acp terminal
+```
+
 ### Grand Agent Menu (Root)
 From repo root, open one menu that launches sub-agent UIs:
 ```bash

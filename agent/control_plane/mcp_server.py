@@ -9,6 +9,7 @@ from pydantic import Field
 
 from agent.control_plane.service import (
     datasource_ready as datasource_ready_service,
+    debug_local_job_crash as debug_local_job_crash_service,
     local_job_crash_packet as local_job_crash_packet_service,
     local_job_list as local_job_list_service,
     local_job_status as local_job_status_service,
@@ -149,6 +150,24 @@ def local_job_crash_packet(
 ) -> CallToolResult:
     """Build a failure packet from local shared-registry metadata and stdout/stderr tails."""
     return _tool_result(local_job_crash_packet_service(job_id, tail_lines))
+
+
+@mcp.tool()
+def debug_local_job_crash(
+    job_id: str,
+    tail_lines: Annotated[int, Field(ge=1, le=2000)] = 200,
+    job_log_root: str | None = None,
+    ollama_model: str = "llama3.1",
+) -> CallToolResult:
+    """Route a local crash packet to a registered debugger first, then Ollama triage, then a planned Codex escalation workspace."""
+    return _tool_result(
+        debug_local_job_crash_service(
+            job_id=job_id,
+            tail_lines=tail_lines,
+            job_log_root=job_log_root,
+            ollama_model=ollama_model,
+        )
+    )
 
 
 def main() -> None:

@@ -12,6 +12,7 @@ from agent.control_plane.fran_adapters import (
     inspect_datasource_local,
     inspect_project_local,
 )
+from agent.control_plane.crash_debugger import CrashDebugger
 from agent.control_plane.hpc import (
     classify_registry_job,
     dashboard_context,
@@ -625,7 +626,7 @@ def orchestrator_train_request(
             name=project_title,
             mode=mode,
             status=SUBMITTED,
-            message="Orchestrator accepted train intent and submitted HPC train.",
+            message="ACP accepted train intent and submitted HPC train.",
             details={
                 "plan": plan,
                 "dashboard": dashboard_context(),
@@ -660,7 +661,7 @@ def orchestrator_train_request(
         model=model,
         escalation_target=escalation_target,
     )
-    payload["message"] = "Orchestrator accepted train intent and submitted local train."
+    payload["message"] = "ACP accepted train intent and submitted local train."
     payload["details"]["decision"] = decision
     payload["details"]["readiness"] = observed_readiness
     if observations:
@@ -703,30 +704,79 @@ def local_job_crash_packet(job_id: str, tail_lines: int = 200) -> dict[str, obje
     return payload
 
 
+def debug_local_job_crash(
+    job_id: str,
+    tail_lines: int = 200,
+    job_log_root: str | None = None,
+    ollama_model: str = "llama3.1",
+) -> dict[str, object]:
+    debugger = CrashDebugger(ollama_model=ollama_model)
+    payload = debugger.debug_job(job_id=job_id, tail_lines=tail_lines, job_log_root=job_log_root)
+    payload["dashboard"] = dashboard_context()
+    return payload
+
+
+def local_job_summary_text(job_id: str, job_meta: dict[str, str], worker_meta: dict[str, str], orch: dict[str, object]) -> str:
+    lines = [
+        f"job={job_id}",
+        f"job_name={job_meta['job_name']}",
+        f"input_method={job_meta['input_method']}",
+        f"project={job_meta['project_title']}",
+        f"plan={job_meta['plan']}",
+        f"fold={job_meta['fold'] or '-'}",
+        f"run_name={job_meta['run_name'] or '-'}",
+        f"worker_state={worker_meta['worker_state']}",
+    ]
+    if "provider" in orch:
+        lines.append(f"acp_provider={orch['provider']}")
+    if "model" in orch and orch["model"]:
+        lines.append(f"acp_model={orch['model']}")
+    if "escalation_target" in orch and orch["escalation_target"]:
+        lines.append(f"acp_escalation_target={orch['escalation_target']}")
+    return "\n".join(lines)
+
+
 def local_job_detail(job_id: str) -> dict[str, object]:
     payload = build_local_job_crash_packet(job_id=job_id, tail_lines=200)
-    job = payload.get("job", {})
-    job_meta = payload.get("job_meta", {})
+    job = payload["job"]
+    job_meta = payload["job_meta"]
+    worker_meta = payload["worker_meta"]
+    orch = payload["orchestrator"]
+    job_dir = Path(job["job_dir"])
     detail = {
         "job_id": job_id,
-        "status": payload.get("status"),
-        "message": payload.get("message"),
-        "project": job_meta.get("project_title", ""),
-        "plan_id": int(job_meta["plan"]) if job_meta.get("plan") else None,
-        "fold": int(job_meta["fold"]) if job_meta.get("fold") else None,
-        "run_name": job_meta.get("run_name", ""),
-        "submitted_at": job.get("submitted_at"),
-        "finished_at": job.get("finished_at"),
-        "last_seen_at": job.get("last_polled_at"),
-        "job_dir_path": job.get("job_dir"),
-        "stdout_path": job.get("stdout"),
-        "stderr_path": job.get("stderr"),
+        "status": payload["status"],
+        "message": payload["message"],
+        "project": job_meta["project_title"],
+        "plan_id": int(job_meta["plan"]) if job_meta["plan"] else None,
+        "fold": int(job_meta["fold"]) if job_meta["fold"] else None,
+        "run_name": job_meta["run_name"],
+        "job_name": job_meta["job_name"],
+        "input_method": job_meta["input_method"],
+        "input_command": job_meta["submit_argv"],
+        "summary_text": local_job_summary_text(job_id, job_meta, worker_meta, orch),
+        "submitted_at": job["submitted_at"],
+        "finished_at": job["finished_at"],
+        "last_seen_at": job["last_polled_at"],
+        "job_dir_path": job["job_dir"],
+        "stdout_path": job["stdout"],
+        "stderr_path": job["stderr"],
         "stdout_url": f"/api/local-train/jobs/{job_id}/stdout",
         "stderr_url": f"/api/local-train/jobs/{job_id}/stderr",
-        "worker_log_path": str(Path(job.get("job_dir", "")) / "worker.log") if job.get("job_dir") else "",
-        "poll_log_path": str(Path(job.get("job_dir", "")) / "poll.log") if job.get("job_dir") else "",
-        "crash_context": "\n".join(payload.get("stderr_tail", [])),
-        "note_context": payload.get("note_context", ""),
+        "worker_log_path": str(job_dir / "worker.log"),
+        "poll_log_path": str(job_dir / "poll.log"),
+        "crash_context": "\n".join(payload["stderr_tail"]),
+        "note_context": payload["note_context"],
+        "acp": {
+            "provider": orch["provider"] if "provider" in orch else "",
+            "model": orch["model"] if "model" in orch else "",
+            "escalation_target": orch["escalation_target"] if "escalation_target" in orch else "",
+        },
+        "provenance": {
+            "job_meta": job_meta,
+            "worker_meta": worker_meta,
+            "orchestrator": orch,
+        },
         "debug_links": [
             {"label": "Crash packet", "url": f"/api/local-train/jobs/{job_id}/crash"},
             {"label": "std.out", "url": f"/api/local-train/jobs/{job_id}/stdout"},
@@ -765,7 +815,7 @@ def post_local_orchestrator_message(message: str, mode: str = "message", job_id:
     state = record_orchestrator_message(message=message, mode=mode, job_id=job_id)
     return {
         "status": state.get("status", "ready"),
-        "message": f"Recorded orchestrator {mode}.",
+        "message": f"Recorded ACP {mode}.",
         "updated_at": state.get("updated_at"),
         "job_id": job_id,
     }
