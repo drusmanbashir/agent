@@ -33,7 +33,7 @@ The local Agent Control Plane (ACP) owns local FRAN train workflow intent, job p
 Operator CLI:
 ```bash
 /home/ub/code/agent/bin/acp status
-/home/ub/code/agent/bin/acp ask "train kits23 plan 3 fold 0 lr 0.0003"
+/home/ub/code/agent/bin/acp ask "train kits23 plan 3 fold 0 lr 0.01 val 2"
 /home/ub/code/agent/bin/acp terminal
 ```
 

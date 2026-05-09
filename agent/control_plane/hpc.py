@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import csv
-import os
 import re
 import subprocess
 from pathlib import Path
 
+from agent.control_plane.address_resolver import fran_jobs_page_url
 from agent.control_plane.models import FAILED, JobInfo, RUNNING, SUBMITTED
 from fran.data.dataregistry import DS
 
@@ -14,18 +14,11 @@ HPC_DATASOURCE_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/datasource.sh")
 HPC_PREPROC_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/preproc.sh")
 HPC_PROJECT_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/project_init.sh")
 HPC_TRAIN_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/train.sh")
-HPC_DASH = Path("/home/ub/code/agent/agent/hpc/cli/hdash")
 HPC_REGISTRY = Path("/s/agent_rw/hpc_logs/job_registry.tsv")
-FRAN_JOBS_PAGE_URL = "http://127.0.0.1:8000/hpc/jobs"
 
 
 def hpc_log_root() -> Path:
     return HPC_REGISTRY.parent
-
-
-def fran_jobs_page_url() -> str:
-    url = os.environ.get("FRAN_JOBS_PAGE_URL", FRAN_JOBS_PAGE_URL).strip()
-    return url or FRAN_JOBS_PAGE_URL
 
 
 def dashboard_context() -> dict[str, str | None]:

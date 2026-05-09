@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec /home/ub/code/agent/agent/hpc/cli/hdash "$@"

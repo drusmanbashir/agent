@@ -51,7 +51,7 @@ def parse_train_intent(text: str) -> dict[str, object]:
             "intent": "unknown",
             "text": text,
             "provider_metadata": provider_metadata(),
-            "message": "Expected a narrow train intent like: train kits23 plan 3 fold 0 lr 0.0003.",
+            "message": "Expected a narrow train intent like: train kits23 plan 3 fold 0 lr 0.01 val 2.",
         }
 
     mode = "hpc" if re.search(r"\bhpc\b", text, flags=re.IGNORECASE) else "local"
@@ -62,9 +62,9 @@ def parse_train_intent(text: str) -> dict[str, object]:
         "plan": plan,
         "mode": mode,
         "fold": _match_int(r"(?:fold|f)\s*[:=]?\s*(\d+)", text),
-        "learning_rate": _match_float(r"(?:learning_rate|lr)\s*[:=]?\s*([0-9.eE+-]+)", text),
+        "learning_rate": _match_float(r"(?:learning_rate|lr)\s*[:=]?\s*([0-9.eE+-]+)", text) or 0.01,
         "train_indices": _match_int(r"(?:train_indices|indices)\s*[:=]?\s*(\d+)", text),
-        "val_every_n_epochs": _match_int(r"(?:val_every_n_epochs|val_every|val)\s*[:=]?\s*(\d+)", text) or 5,
+        "val_every_n_epochs": _match_int(r"(?:val_every_n_epochs|val_every|val)\s*[:=]?\s*(\d+)", text) or 2,
         "run_name": None if run_name_match is None or run_name_match[1] == "none" else run_name_match[1],
         "provider_metadata": provider_metadata(),
     }

@@ -46,8 +46,8 @@ def base_context(request: Request) -> dict:
             "plan_id": 3,
             "fold": 0,
             "train_indices": None,
-            "val_every_n_epochs": 5,
-            "learning_rate": "0.0003",
+            "val_every_n_epochs": 2,
+            "learning_rate": "0.01",
             "run_name": "none",
         },
         "local_train_api": {

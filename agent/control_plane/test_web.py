@@ -42,8 +42,8 @@ def test_base_context_includes_local_train_defaults(monkeypatch) -> None:
         "plan_id": 3,
         "fold": 0,
         "train_indices": None,
-        "val_every_n_epochs": 5,
-        "learning_rate": "0.0003",
+        "val_every_n_epochs": 2,
+        "learning_rate": "0.01",
         "run_name": "none",
     }
     assert context["local_train_api"] == {
@@ -73,8 +73,8 @@ def test_index_renders_local_train_slice(monkeypatch) -> None:
                 "plan_id": 3,
                 "fold": 0,
                 "train_indices": None,
-                "val_every_n_epochs": 5,
-                "learning_rate": "0.0003",
+                "val_every_n_epochs": 2,
+                "learning_rate": "0.01",
                 "run_name": "none",
             },
             "local_train_api": {
@@ -142,8 +142,6 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
             "mode": "hpc",
             "fold": 0,
             "train_indices": None,
-            "val_every_n_epochs": 5,
-            "learning_rate": "0.0003",
             "run_name": "none",
         },
     )
@@ -161,7 +159,8 @@ def test_orchestrator_train_request_route_delegates(monkeypatch) -> None:
     assert calls[0]["project_title"] == "kits23"
     assert calls[0]["plan"] == 3
     assert calls[0]["mode"] == "hpc"
-    assert calls[0]["learning_rate"] == 0.0003
+    assert calls[0]["learning_rate"] == 0.01
+    assert calls[0]["val_every_n_epochs"] == 2
     assert calls[0]["run_name"] is None
 
 

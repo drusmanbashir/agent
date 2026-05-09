@@ -4,14 +4,15 @@ import agent.control_plane.cli_app as cli_app
 
 
 def test_parse_train_intent_is_deterministic_and_keeps_ollama_metadata() -> None:
-    payload = cli_app.parse_train_intent("train kits23 plan 3 fold 0 lr 0.0003 indices 40 hpc run smoke")
+    payload = cli_app.parse_train_intent("train kits23 plan 3 fold 0 lr 0.01 val 2 indices 40 hpc run smoke")
 
     assert payload["intent"] == "train"
     assert payload["project_title"] == "kits23"
     assert payload["plan"] == 3
     assert payload["mode"] == "hpc"
     assert payload["fold"] == 0
-    assert payload["learning_rate"] == 0.0003
+    assert payload["learning_rate"] == 0.01
+    assert payload["val_every_n_epochs"] == 2
     assert payload["train_indices"] == 40
     assert payload["run_name"] == "smoke"
     assert payload["provider_metadata"]["provider"] == "ollama"
@@ -39,10 +40,12 @@ def test_ask_preview_does_not_submit(monkeypatch) -> None:
     monkeypatch.setattr(cli_app, "train_plan_ready", fake_train_plan_ready)
     monkeypatch.setattr(cli_app, "orchestrator_train_request", fake_submit)
 
-    payload = cli_app.ask_text("train kits23 plan 3 fold 0 lr 0.0003")
+    payload = cli_app.ask_text("train kits23 plan 3 fold 0")
 
     assert payload["status"] == "preview"
     assert payload["submit"] is False
+    assert payload["intent"]["learning_rate"] == 0.01
+    assert payload["intent"]["val_every_n_epochs"] == 2
     assert payload["decision"]["action"] == "submit_local_train"
     assert calls == []
 
@@ -56,13 +59,14 @@ def test_ask_submit_delegates_to_orchestrator(monkeypatch) -> None:
 
     monkeypatch.setattr(cli_app, "orchestrator_train_request", fake_submit)
 
-    payload = cli_app.ask_text("train kits23 plan 3 fold 0 lr 0.0003", submit=True)
+    payload = cli_app.ask_text("train kits23 plan 3 fold 0", submit=True)
 
     assert payload["status"] == "submitted"
     assert calls[0]["project_title"] == "kits23"
     assert calls[0]["plan"] == 3
     assert calls[0]["fold"] == 0
-    assert calls[0]["learning_rate"] == 0.0003
+    assert calls[0]["learning_rate"] == 0.01
+    assert calls[0]["val_every_n_epochs"] == 2
     assert calls[0]["provider"] == "ollama"
 
 

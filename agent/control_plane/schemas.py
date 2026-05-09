@@ -10,7 +10,7 @@ class TrainRequest(BaseModel):
     plan_id: int
     mode: Literal["local", "hpc"] = "local"
     devices: str = "1"
-    learning_rate: float | None = 0.0003
+    learning_rate: float | None = 0.01
     batch_size: int = 4
     fold: int | None = 0
     epochs: int = 500
@@ -21,7 +21,7 @@ class TrainRequest(BaseModel):
     description: str | None = None
     cache_rate: float = 0.0
     ds_type: str | None = None
-    val_every_n_epochs: int = 5
+    val_every_n_epochs: int = 2
     train_indices: int | None = None
     bsf: bool = True
     max_retries: int = 3

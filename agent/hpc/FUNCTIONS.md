@@ -74,16 +74,10 @@
   - Shows a `Poll` column with the last recorded status poll time.
   - Poll actions run `cli/hpc_poll_logs.sh` asynchronously so the UI stays responsive.
 
-- `cli/hdash start|stop|status|url`
-  - Preferred local web dashboard service launcher on `PATH`.
-  - `start` first runs `cli/job_registry.sh archive 14`, then detaches a localhost-only HTTP dashboard, writes `service.pid`, `service.log`, `service.meta`, and `actions.log` under `${HPC_LOGS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}/dashboard_service` by default, waits for `/healthz`, then prints the live URL.
-  - `stop` terminates the local dashboard service and clears stale state files.
-  - `status` reports `running` with PID and URL or returns non-zero when stopped.
-  - `url` prints the current live URL only and returns non-zero when stopped.
-  - The service reuses `tools/job_registry.py`, shows Active vs Closed jobs, and triggers adhoc polls through `cli/hpc_poll_logs.sh`.
-
-- `cli/hpc_dashboard start|stop|status|url`
-  - Compatibility alias for `cli/hdash`.
+- `python -m agent.control_plane.address_resolver jobs-url`
+  - Prints the canonical FRAN webapp HPC jobs URL used by control-plane links and launchers.
+  - `FRAN_JOBS_PAGE_URL` overrides the resolved URL directly.
+  - Otherwise the URL is derived from `FRAN_WEBAPP_HOST` and `FRAN_WEBAPP_PORT`.
 
 - `cli/hpc_dashboard_web.py --host 127.0.0.1 --port 8765 --state-dir <dir> --meta-file <file>`
   - Stdlib `http.server` backend for the local browser dashboard.

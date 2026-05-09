@@ -30,22 +30,13 @@ Dashboard entrypoint:
   - Splits Active vs Closed jobs and dispatches refresh/poll/open actions through existing shell helpers.
   - Shows a `Poll` column with the last recorded status poll time.
   - UI date/time display uses British format `DD/MM/YYYY HH:MM:SS`.
-- `hdash start`
-  - Preferred launcher. Starts a detached local web dashboard bound to `127.0.0.1`, then prints the live URL.
-  - Also runs `job_registry.sh archive 14` before the service comes up.
-- `hdash status`
-  - Reports whether the local web dashboard service is running.
-- `hdash url`
-  - Prints the live localhost URL only.
-- `hdash stop`
-  - Stops the detached local web dashboard service.
-- `hpc_dashboard ...`
-  - Compatibility alias for `hdash`, kept to avoid breakage in existing shell usage.
-- `python3 agent/hpc/cli/hpc_dashboard_web.py --state-dir /s/agent_rw/hpc_logs/dashboard_service --meta-file /s/agent_rw/hpc_logs/dashboard_service/service.meta`
-  - Underlying stdlib web server used by `hdash`.
-  - Binds to `127.0.0.1` by default and exposes Active/Closed tabs, a `POLL` column for last status poll time, refresh, poll-selected, poll-all-active, active-job-only cancel-selected, and per-job local log views.
-  - Cancel uses `cli/hpc_ssh.sh` with absolute `/opt/slurm/bin/scancel`, then runs one canonical `cli/hpc_poll_logs.sh` poll to refresh registry/log state.
-  - UI date/time display uses British format `DD/MM/YYYY HH:MM:SS`.
+- `/home/ub/code/agent/bin/fran start`
+  - Preferred launcher for the FRAN webapp.
+  - Starts `agent.webapp.api.main:app` from `/home/ub/code/fran` on the resolved host/port.
+- `python -m agent.control_plane.address_resolver jobs-url`
+  - Prints the canonical FRAN webapp HPC jobs URL used by control-plane links.
+  - `FRAN_JOBS_PAGE_URL` overrides the derived URL directly.
+  - Otherwise the URL is derived from `FRAN_WEBAPP_HOST` and `FRAN_WEBAPP_PORT`.
 
 Train stack behavior: `run_name=none` initializes a new run. Any non-`none` run name targets or resumes an existing run.
 

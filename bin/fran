@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR=/home/ub/code/agent
-APP=agent.control_plane.web:app
-HOST=127.0.0.1
-PORT=8780
-PATTERN="uvicorn --app-dir ${APP_DIR} ${APP} --host ${HOST} --port ${PORT}"
+REPO_ROOT=/home/ub/code/agent
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+resolve() {
+  PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" "${PYTHON_BIN}" -m agent.control_plane.address_resolver "$1"
+}
+
+APP_DIR="$(resolve uvicorn-app-dir)"
+APP="$(resolve uvicorn-app)"
+HOST="$(resolve uvicorn-host)"
+PORT="$(resolve uvicorn-port)"
+PATTERN="$(resolve uvicorn-pattern)"
 
 start() {
   exec uvicorn --app-dir "$APP_DIR" "$APP" --host "$HOST" --port "$PORT" "$@"
