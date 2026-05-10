@@ -20,6 +20,7 @@ COMMON_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config.yaml")
 COMMON_HPC_CONF = os.path.join(os.environ.get(CONFIG_ENV, ""), "config_hpc.yaml")
 SYNC_SUBDIRS = ("images", "lms")
 SYNC_PREFIXES = tuple(f"{subdir}/" for subdir in SYNC_SUBDIRS)
+SYNC_ROOT_FILE_GLOBS = ("meta*.xlsx",)
 SYNC_ON_DEMAND_PATTERNS = ("uls23_*",)
 
 
@@ -572,11 +573,17 @@ def _dataset_remote_path(remote_root: str, remote_subdir: str) -> str:
     return f"{remote_root.rstrip('/')}/{remote_subdir.strip('/')}"
 
 
+def _is_allowed_root_sync_file_name(name: str) -> bool:
+    return any(fnmatch.fnmatch(name, pattern) for pattern in SYNC_ROOT_FILE_GLOBS)
+
+
 def _is_safe_rel_sync_path(rel_path: str) -> bool:
-    if not rel_path.startswith(SYNC_PREFIXES):
-        return False
     pure = Path(rel_path)
     if pure.is_absolute():
+        return False
+    if len(pure.parts) == 1:
+        return _is_allowed_root_sync_file_name(pure.name)
+    if not rel_path.startswith(SYNC_PREFIXES):
         return False
     if any(part in {"", ".", ".."} for part in pure.parts):
         return False
@@ -619,6 +626,17 @@ def _remote_dir_exists(remote: str, remote_path: str, verbose: bool = True) -> b
 
 def _list_local_dataset_files(local_folder: Path) -> dict[str, FileTimes]:
     local_files: dict[str, FileTimes] = {}
+    for file_path in local_folder.iterdir():
+        if not file_path.is_file():
+            continue
+        if not _is_allowed_root_sync_file_name(file_path.name):
+            continue
+        rel_path = file_path.relative_to(local_folder).as_posix()
+        stat = file_path.stat()
+        local_files[rel_path] = {
+            "mtime": int(stat.st_mtime),
+            "ctime": int(stat.st_ctime),
+        }
     for subdir in SYNC_SUBDIRS:
         root = local_folder / subdir
         if not root.is_dir():
@@ -645,6 +663,7 @@ def _remote_shell_cmd(remote: str, remote_cmd: str) -> list[str]:
 def _list_remote_dataset_files(remote: str, remote_dataset_path: str, verbose: bool = True) -> dict[str, FileTimes]:
     remote_cmd = (
         f"base={shlex.quote(remote_dataset_path)}; "
+        'if [ -d "$base" ]; then find "$base" -maxdepth 1 -type f -exec stat -c \'%n|%Y|%W\' {} +; fi; '
         "for d in images lms; do "
         'p="$base/$d"; '
         'if [ -d "$p" ]; then find "$p" -type f -exec stat -c \'%n|%Y|%W\' {} +; fi; '
@@ -672,7 +691,7 @@ def _list_remote_dataset_files(remote: str, remote_dataset_path: str, verbose: b
         if not abs_path.startswith(prefix):
             continue
         rel_path = abs_path[len(prefix) :]
-        if not rel_path.startswith(SYNC_PREFIXES):
+        if not _is_safe_rel_sync_path(rel_path):
             continue
         try:
             remote_files[rel_path] = {

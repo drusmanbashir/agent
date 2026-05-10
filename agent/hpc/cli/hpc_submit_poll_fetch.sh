@@ -167,14 +167,30 @@ infer_sbatch_cpus_per_task_from_script_args() {
   return 1
 }
 
+submit_uses_num_processes_for_cpus() {
+  case "$(basename "${SBATCH_FILE}")" in
+    preproc.sh)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 sbatch_ntasks_q=""
-inferred_ntasks="$(infer_sbatch_ntasks_from_script_args "$@" || true)"
-if [[ -n "${inferred_ntasks:-}" ]]; then
-  sbatch_ntasks_q="$(printf "%q" "--ntasks=${inferred_ntasks}")"
+if ! submit_uses_num_processes_for_cpus; then
+  inferred_ntasks="$(infer_sbatch_ntasks_from_script_args "$@" || true)"
+  if [[ -n "${inferred_ntasks:-}" ]]; then
+    sbatch_ntasks_q="$(printf "%q" "--ntasks=${inferred_ntasks}")"
+  fi
 fi
 
 sbatch_cpus_per_task_q=""
 inferred_cpus_per_task="$(infer_sbatch_cpus_per_task_from_script_args "$@" || true)"
+if [[ -z "${inferred_cpus_per_task:-}" ]] && submit_uses_num_processes_for_cpus; then
+  inferred_cpus_per_task="$(infer_sbatch_ntasks_from_script_args "$@" || true)"
+fi
 if [[ -n "${inferred_cpus_per_task:-}" ]]; then
   sbatch_cpus_per_task_q="$(printf "%q" "--cpus-per-task=${inferred_cpus_per_task}")"
 fi

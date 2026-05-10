@@ -22,7 +22,7 @@ LABEL_ANALYSIS_REPO_ROOT="${FRAN_CODE_ROOT}/label_analysis"
 
 usage() {
   cat <<'EOF'
-Usage: preproc.sh <project_title> <plan_num> [-n <num_processes>] [-c <cpus_per_task>]
+Usage: preproc.sh <project_title> <plan_num> [-n <num_processes_and_cpus>] [-c <compat_num_processes_and_cpus>]
 EOF
 }
 
@@ -73,7 +73,7 @@ fi
 p="$2"
 shift 2
 
-n="1"
+n="16"
 cpus_per_task="16"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -84,6 +84,7 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       n="$2"
+      cpus_per_task="$2"
       shift 2
       ;;
     -c|--cpus-per-task)
@@ -92,10 +93,12 @@ while [[ $# -gt 0 ]]; do
         usage >&2
         exit 2
       fi
+      n="$2"
       cpus_per_task="$2"
       shift 2
       ;;
     -c=*|--cpus-per-task=*)
+      n="${1#*=}"
       cpus_per_task="${1#*=}"
       shift
       ;;
