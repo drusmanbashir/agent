@@ -16,14 +16,14 @@ Usage: project_delete_all.sh [project_title ...] [-c <cpus_per_task>]
 EOF
 }
 
-module load miniforge
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate dl
 threads="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
 export OMP_NUM_THREADS="${threads}"
 export OPENBLAS_NUM_THREADS="${threads}"
 export MKL_NUM_THREADS="${threads}"
 export NUMEXPR_NUM_THREADS="${threads}"
+module load miniforge
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate dl
 
 cpus_per_task="16"
 projects=()

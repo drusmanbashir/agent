@@ -36,6 +36,11 @@ log_fail_context() {
 
 trap 'rc=$?; log_fail_context "${rc}" "${BASH_COMMAND}"; exit "${rc}"' ERR
 
+threads="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
+export OMP_NUM_THREADS="${threads}"
+export OPENBLAS_NUM_THREADS="${threads}"
+export MKL_NUM_THREADS="${threads}"
+export NUMEXPR_NUM_THREADS="${threads}"
 module load miniforge
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate dl
@@ -43,11 +48,6 @@ export FRAN_CONF="${FRAN_CONF_DIR}"
 export PYTHONPATH="${LOCALISER_REPO_ROOT}:${FRAN_REPO_ROOT}:${UTILZ_REPO_ROOT}:${LABEL_ANALYSIS_REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 export FRAN_STORE_LABEL_STATS="${FRAN_STORE_LABEL_STATS:-0}"
 export FRAN_STORE_GIFS="${FRAN_STORE_GIFS:-0}"
-threads="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
-export OMP_NUM_THREADS="${threads}"
-export OPENBLAS_NUM_THREADS="${threads}"
-export MKL_NUM_THREADS="${threads}"
-export NUMEXPR_NUM_THREADS="${threads}"
 
 echo "host=$(hostname)"
 echo "job_id=${SLURM_JOB_ID}"

@@ -16,16 +16,16 @@ Usage: datasource_update.sh <folder> <name> [-n <num_processes>] [-c <cpus_per_t
 EOF
 }
 
-module load miniforge
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate dl
-export FRAN_STORE_LABEL_STATS="${FRAN_STORE_LABEL_STATS:-0}"
-export FRAN_STORE_GIFS="${FRAN_STORE_GIFS:-0}"
 threads="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
 export OMP_NUM_THREADS="${threads}"
 export OPENBLAS_NUM_THREADS="${threads}"
 export MKL_NUM_THREADS="${threads}"
 export NUMEXPR_NUM_THREADS="${threads}"
+module load miniforge
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate dl
+export FRAN_STORE_LABEL_STATS="${FRAN_STORE_LABEL_STATS:-0}"
+export FRAN_STORE_GIFS="${FRAN_STORE_GIFS:-0}"
 
 if [[ $# -lt 2 ]]; then
   usage >&2

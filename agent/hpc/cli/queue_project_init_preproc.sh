@@ -84,8 +84,8 @@ POSTPROC_EXPORTS="export FRAN_STORE_LABEL_STATS=0; export FRAN_STORE_GIFS=0"
 THREAD_EXPORTS="threads=\${SLURM_CPUS_PER_TASK:-\${SLURM_NTASKS:-1}}; export OMP_NUM_THREADS=\${threads}; export OPENBLAS_NUM_THREADS=\${threads}; export MKL_NUM_THREADS=\${threads}; export NUMEXPR_NUM_THREADS=\${threads}"
 
 printf -v DS_ARGS '%q ' "${DATASOURCES[@]}"
-INIT_CMD="module load miniforge; source \"\$(conda info --base)/etc/profile.d/conda.sh\"; conda activate dl; export FRAN_CONF=${FRAN_CONF_DIR}; ${PYTHONPATH_EXPORT}; ${POSTPROC_EXPORTS}; ${THREAD_EXPORTS}; python ${PROJECT_INIT_PY} -t ${PROJECT_TITLE} -m ${MNEMONIC} --datasources ${DS_ARGS}-n ${NPROC}"
-PREPROC_CMD="module load miniforge; source \"\$(conda info --base)/etc/profile.d/conda.sh\"; conda activate dl; export FRAN_CONF=${FRAN_CONF_DIR}; ${PYTHONPATH_EXPORT}; ${POSTPROC_EXPORTS}; ${THREAD_EXPORTS}; python -u ${PREPROC_PY} -t ${PROJECT_TITLE} -p ${PLAN_NUM} -n ${NPROC}"
+INIT_CMD="${THREAD_EXPORTS}; module load miniforge; source \"\$(conda info --base)/etc/profile.d/conda.sh\"; conda activate dl; export FRAN_CONF=${FRAN_CONF_DIR}; ${PYTHONPATH_EXPORT}; ${POSTPROC_EXPORTS}; python ${PROJECT_INIT_PY} -t ${PROJECT_TITLE} -m ${MNEMONIC} --datasources ${DS_ARGS}-n ${NPROC}"
+PREPROC_CMD="${THREAD_EXPORTS}; module load miniforge; source \"\$(conda info --base)/etc/profile.d/conda.sh\"; conda activate dl; export FRAN_CONF=${FRAN_CONF_DIR}; ${PYTHONPATH_EXPORT}; ${POSTPROC_EXPORTS}; python -u ${PREPROC_PY} -t ${PROJECT_TITLE} -p ${PLAN_NUM} -n ${NPROC}"
 
 JID_INIT="$(
   sbatch --parsable \

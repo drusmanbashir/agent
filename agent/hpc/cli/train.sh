@@ -12,6 +12,12 @@
 
 set -euo pipefail
 
+THREADS="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
+export OMP_NUM_THREADS="${THREADS}"
+export OPENBLAS_NUM_THREADS="${THREADS}"
+export MKL_NUM_THREADS="${THREADS}"
+export NUMEXPR_NUM_THREADS="${THREADS}"
+
 module load miniforge
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate dl
@@ -39,12 +45,6 @@ for kv in "${@:8}"; do
       ;;
   esac
 done
-
-THREADS="${SLURM_CPUS_PER_TASK:-${SLURM_NTASKS:-1}}"
-export OMP_NUM_THREADS="${THREADS}"
-export OPENBLAS_NUM_THREADS="${THREADS}"
-export MKL_NUM_THREADS="${THREADS}"
-export NUMEXPR_NUM_THREADS="${THREADS}"
 
 cmd=(
   python -u /data/EECS-LITQ/fran_storage/code/fran/fran/run/training/train_retry.py
