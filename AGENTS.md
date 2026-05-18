@@ -4,6 +4,8 @@
 - Universal rule: orchestrate first. For coding and file edits, delegate implementation to an agent rather than editing directly in the main thread.
 - Approval rule: do not modify code or files without the user's explicit approval. This applies equally to direct edits and edits performed via sub-agents.
 - Review rule: before any code or file modification, show the exact proposed snippet or patch in chat for review. This applies equally to direct edits and edits performed via sub-agents.
+- Forward-only rule: do not implement backward compatibility or guards for legacy code in this repo.
+- Repo-managed rule: this repo moves as one unit; once a path, contract, or filename changes, remove old branches instead of preserving them.
 
 ### Defaults
 - `HPC_DEFAULT_DOWNLOAD_SRC=/s/agent_rw/`

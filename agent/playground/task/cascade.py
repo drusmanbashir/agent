@@ -418,7 +418,7 @@ if __name__ == "__main__":
     import time
     from pathlib import Path
     import SimpleITK as sitk
-    from fran.inference.base import list_to_chunks
+    from utilz.helpers import chunks
     from fran.managers import Project
     from fran.managers.wandb.wandb import (
         download_path_no_wandb,
@@ -834,7 +834,7 @@ if __name__ == "__main__":
         pass
         # En.save = False  # don't save if input is pure images. Just output those.
     if len(imgs) > 0:
-        imgs = list_to_chunks(imgs, chunksize)
+        imgs = chunks(imgs, n_sized_chunks=chunksize)
         for imgs_sublist in imgs:
             output = En.process_data_sublist(imgs_sublist)
 
@@ -888,5 +888,4 @@ if __name__ == "__main__":
     lm = sitk.ReadImage(fn)
 
     lm.GetSize()
-
 

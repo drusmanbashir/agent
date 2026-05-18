@@ -1,0 +1,3 @@
+2026-05-11T22:04:50+01:00 | crash type: HPC train CLI argument mismatch | fix implemented: aligned agent/hpc/cli/train.sh and agent/control_plane/hpc.py to the same simple positional training argument shape with fallback defaults
+2026-05-11T22:04:50+01:00 | crash type: UNetManager hyperparameter capture KeyError(safe_mode) | fix implemented: removed nonexistent safe_mode hyperparameter from fran/managers/unet.py save_hyperparameters call
+2026-05-17T19:43:12+01:00 | crash type: WorkAudit live-session observer bind AttributeError(MasterRepresentationModified) | fix implemented: rebound WorkAudit segmentation observer to SourceRepresentationModified used by local Slicer 5.9 vtkSegmentation API

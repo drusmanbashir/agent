@@ -1,0 +1,14 @@
+{
+  "name": "agent-promptfoo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Promptfoo tooling for the agent control plane",
+  "scripts": {
+    "promptfoo:eval": "PROMPTFOO_PYTHON=/home/ub/mambaforge/envs/dl/bin/python promptfoo eval",
+    "promptfoo:view": "PROMPTFOO_PYTHON=/home/ub/mambaforge/envs/dl/bin/python promptfoo view",
+    "promptfoo:mcp": "PROMPTFOO_PYTHON=/home/ub/mambaforge/envs/dl/bin/python promptfoo mcp --transport stdio"
+  },
+  "devDependencies": {
+    "promptfoo": "0.121.11"
+  }
+}

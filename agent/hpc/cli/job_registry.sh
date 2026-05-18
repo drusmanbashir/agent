@@ -4,10 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/storage_roots.sh"
+load_storage_roots
 
 cd "${REPO_ROOT}"
 
-OUT_ROOT="${HPC_LOGS_LOCAL_ROOT:-${HPC_JOBS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}}"
+OUT_ROOT="${AGENT_HPC_LOG_ROOT}"
 REGISTRY_FILE="${OUT_ROOT}/job_registry.tsv"
 
 mkdir -p "${OUT_ROOT}"
@@ -143,11 +146,12 @@ case "${cmd}" in
   archive)
     days="${1:-14}"
     archived_count="$(
-      ARCHIVE_DAYS="${days}" HPC_LOGS_LOCAL_ROOT="${OUT_ROOT}" "${PYTHON_BIN}" -c '
+      ARCHIVE_DAYS="${days}" OUT_ROOT="${OUT_ROOT}" "${PYTHON_BIN}" -c '
 from tools.job_registry import JobRegistry
 import os
+from pathlib import Path
 days = int(os.environ["ARCHIVE_DAYS"])
-print(JobRegistry().archive_jobs(days=days))
+print(JobRegistry(Path(os.environ["OUT_ROOT"])).archive_jobs(days=days))
 '
     )"
     archive_file="${OUT_ROOT}/job_registry.archive.tsv"

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <h1 class="title">Missing asset</h1>
+        <p class="muted">{{ asset }} is not present locally for job {{ job.job_id }}.</p>
+      </div>
+      <a class="button" href="/?selected={{ job.job_id }}&tab={{ 'closed' if job.closed else 'active' }}&scope={{ scope }}">Back to dashboard</a>
+    </div>
+
+    <div class="stack" style="margin-top: 16px;">
+      <div>
+        <h2 class="section-title">Expected path</h2>
+        <p class="mono">{{ path }}</p>
+      </div>
+
+      {% if raw_paths %}
+        <div>
+          <h2 class="section-title">Raw local files</h2>
+          <pre>{% for raw_path in raw_paths %}{{ raw_path }}
+{% endfor %}</pre>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

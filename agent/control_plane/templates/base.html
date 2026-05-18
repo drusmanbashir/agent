@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }} | FRAN</title>
+    <style>
+      :root {
+        --bg: #f4f6fa;
+        --panel: #ffffff;
+        --border: #d6dbe4;
+        --text: #18212b;
+        --muted: #5f6c7a;
+        --accent: #124a8a;
+        --accent-soft: #eaf1fb;
+        --running: #0f766e;
+        --failed: #b42318;
+        --done: #475467;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 sans-serif;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      form { margin: 0; }
+      .site {
+        max-width: 1320px;
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+      .site-nav {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        padding: 0 4px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .site-link {
+        padding: 6px 0;
+        color: var(--muted);
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+      }
+      .site-link.active {
+        color: var(--text);
+        border-bottom-color: var(--accent);
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .header,
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: start;
+      }
+      .title { margin: 0; font-size: 24px; }
+      .section-title { margin: 0 0 12px; font-size: 16px; }
+      .muted { color: var(--muted); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .banner {
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .toolbar,
+      .filters,
+      .detail-actions,
+      .links,
+      .checkbox-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .button,
+      button {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+        padding: 8px 12px;
+        font: inherit;
+      }
+      button { cursor: pointer; }
+      input[type="text"],
+      input[type="number"],
+      textarea,
+      select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+        padding: 8px 12px;
+        font: inherit;
+      }
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(360px, 40%) minmax(520px, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .left-pane,
+      .right-pane,
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+      .sticky {
+        position: sticky;
+        top: 24px;
+      }
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .form-label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .tab {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+      .table-wrap table {
+        min-width: 640px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      tr.selected {
+        background: var(--accent-soft);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .badge.running {
+        color: var(--running);
+        background: #ecfdf3;
+      }
+      .badge.failed {
+        color: var(--failed);
+        background: #fef3f2;
+      }
+      .badge.done {
+        color: var(--done);
+        background: #f2f4f7;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 8px 12px;
+        margin: 0;
+      }
+      .kv dt { color: var(--muted); }
+      .kv dd { margin: 0; }
+      .empty {
+        padding: 18px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        color: var(--muted);
+      }
+      pre {
+        margin: 0;
+        padding: 12px;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow: auto;
+      }
+      @media (max-width: 980px) {
+        body { padding: 14px; }
+        .layout,
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+        .sticky { position: static; }
+        .header,
+        .section-head,
+        .site-nav {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site">
+      <nav class="site-nav" aria-label="Site navigation">
+        <a class="site-link {% if nav_page == 'jobs' %}active{% endif %}" href="/" {% if nav_page == 'jobs' %}aria-current="page"{% endif %}>Dashboard</a>
+        <a class="site-link {% if nav_page == 'projects' %}active{% endif %}" href="/projects" {% if nav_page == 'projects' %}aria-current="page"{% endif %}>Projects</a>
+        <a class="site-link {% if nav_page == 'training' %}active{% endif %}" href="/train" {% if nav_page == 'training' %}aria-current="page"{% endif %}>Training</a>
+      </nav>
+
+      {% if message %}
+        <p class="banner">{{ message }}</p>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>

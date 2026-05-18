@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import subprocess
 import time
+from contextlib import redirect_stdout
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 
 from agent.control_plane.fran_adapters import (
@@ -31,17 +33,18 @@ from agent.control_plane.local_registry import (
 )
 from agent.control_plane.models import BLOCKED, FAILED, READY, RUNNING, SUBMITTED, TIMED_OUT, StatusResult
 from agent.control_plane.ollama_orchestrator import decide_train_workflow
+from agent.storage_roots import storage_root
 from fran.run.project.project_status import (
     confirm_plan_status,
     load_project_cfg_with_preprocess_status,
     project_names,
 )
+from fran.managers.project import Project
 
 PROJECT_STATUS_SH = Path(__file__).resolve().parents[1] / "hpc" / "cli" / "project_status.sh"
 LOCAL_PREPROC_PYTHON = Path("/home/ub/mambaforge/envs/dl/bin/python")
 LOCAL_PREPROC_BLOCK_SUSPEND = Path("/home/ub/code/fran/fran/run/misc/block_suspend.py")
 LOCAL_PREPROC_SCRIPT = Path("/home/ub/code/fran/fran/run/preproc/analyze_resample.py")
-LOCAL_PREPROC_LOG_ROOT = Path("/tmp/agent-control-plane-preproc")
 LOCAL_PREPROC_CWD = Path("/home/ub/code/agent")
 LOCAL_FRAN_CONF = Path("/s/fran_storage/conf")
 LOCAL_PYTHONPATH_ROOTS = [
@@ -54,6 +57,52 @@ LOCAL_PYTHONPATH_ROOTS = [
 
 def list_existing_projects() -> list[dict[str, str]]:
     return [{"name": name} for name in project_names(print_stdout=False)]
+
+
+def capture_command_stdout(fn, *args, **kwargs) -> tuple[object, str]:
+    stdout_buffer = StringIO()
+    with redirect_stdout(stdout_buffer):
+        result = fn(*args, **kwargs)
+    return result, stdout_buffer.getvalue().strip()
+
+
+def merge_command_stdout(*chunks: str | None) -> str:
+    return "\n".join(chunk.strip() for chunk in chunks if chunk and chunk.strip())
+
+
+def set_command_stdout(payload: dict[str, object], output: str | None) -> dict[str, object]:
+    merged = merge_command_stdout(str(payload.get("command_stdout", "")), output)
+    if merged:
+        payload["command_stdout"] = merged
+    return payload
+
+
+def add_command_stdout(payload: dict[str, object], output: str | None) -> dict[str, object]:
+    details = dict(payload.get("details") or {})
+    set_command_stdout(details, output)
+    if details:
+        payload["details"] = details
+    return payload
+
+
+def ollama_prompt(prompt: str, model: str = "llama3.1") -> dict[str, object]:
+    command = ["ollama", "run", model, prompt]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    status = READY if result.returncode == 0 else FAILED
+    return {
+        "target": "ollama",
+        "name": model,
+        "mode": "local",
+        "status": status,
+        "message": "Ollama prompt completed." if status == READY else "Ollama prompt failed.",
+        "details": {
+            "command": command,
+            "prompt": prompt,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode,
+        },
+    }
 
 
 def project_summary_counts(plans: list[dict[str, object]]) -> dict[str, int]:
@@ -94,14 +143,14 @@ def parse_project_status_stdout(stdout: str) -> dict[int, dict[str, str]]:
     return statuses
 
 
-def hpc_project_statuses(name: str) -> dict[int, dict[str, str]]:
+def hpc_project_statuses(name: str) -> tuple[dict[int, dict[str, str]], str]:
     result = subprocess.run(
         [str(PROJECT_STATUS_SH), name],
         check=True,
         capture_output=True,
         text=True,
     )
-    return parse_project_status_stdout(result.stdout)
+    return parse_project_status_stdout(result.stdout), result.stdout.strip()
 
 
 def patch_dims_value(plan: dict[str, object]) -> str:
@@ -149,8 +198,9 @@ def preproc_project_name(project_name: str) -> str:
 
 def get_project_plans(name: str, mode: str = "local") -> dict[str, object]:
     if mode == "hpc":
-        proj, cfg = load_project_cfg_with_preprocess_status(name)
-        remote_statuses = hpc_project_statuses(name)
+        loaded_project, load_stdout = capture_command_stdout(load_project_cfg_with_preprocess_status, name)
+        proj, cfg = loaded_project
+        remote_statuses, remote_stdout = hpc_project_statuses(name)
 
         plans = []
         for plan_id in cfg.plans.index:
@@ -167,14 +217,16 @@ def get_project_plans(name: str, mode: str = "local") -> dict[str, object]:
                 preprocessed = "none"
             plans.append(plan_payload(plan_id, plan, preprocessed, remote_status["status_source"], remote_status["status_plan_ds"]))
 
-        return {
+        payload = {
             "project": proj.project_title,
             "num_cases": len(proj),
             "plans": plans,
             "summary": project_summary_counts(plans),
         }
+        return set_command_stdout(payload, merge_command_stdout(load_stdout, remote_stdout))
 
-    proj, cfg = load_project_cfg_with_preprocess_status(name)
+    loaded_project, load_stdout = capture_command_stdout(load_project_cfg_with_preprocess_status, name)
+    proj, cfg = loaded_project
 
     plans = []
     for plan_id in cfg.plans.index:
@@ -191,12 +243,13 @@ def get_project_plans(name: str, mode: str = "local") -> dict[str, object]:
             )
         )
 
-    return {
+    payload = {
         "project": proj.project_title,
         "num_cases": len(proj),
         "plans": plans,
         "summary": project_summary_counts(plans),
     }
+    return set_command_stdout(payload, load_stdout)
 
 
 def datasource_ready(
@@ -207,14 +260,15 @@ def datasource_ready(
     job_id: str | None = None,
 ) -> dict:
     if mode == "local":
-        result = ensure_datasource_local(name, num_processes) if ensure else inspect_datasource_local(name, num_processes)
-        return result.to_dict()
-    local_result = inspect_datasource_local(name, num_processes)
+        runner = ensure_datasource_local if ensure else inspect_datasource_local
+        result, command_stdout = capture_command_stdout(runner, name, num_processes)
+        return add_command_stdout(result.to_dict(), command_stdout)
+    local_result, local_stdout = capture_command_stdout(inspect_datasource_local, name, num_processes)
     dash = dashboard_context()
     if job_id:
         job_state = classify_registry_job(job_id)
         if job_state["status"] in {SUBMITTED, RUNNING}:
-            return StatusResult(
+            payload = StatusResult(
                 target="datasource",
                 name=name,
                 mode="hpc",
@@ -222,13 +276,14 @@ def datasource_ready(
                 message=job_state["message"],
                 details={"local_assessment": local_result.to_dict(), "dashboard": dash, "job_state": job_state},
             ).to_dict()
+            return add_command_stdout(payload, local_stdout)
         if job_state["status"] == "completed":
-            verified = inspect_datasource_local(name, num_processes)
+            verified, verified_stdout = capture_command_stdout(inspect_datasource_local, name, num_processes)
             verified.mode = "hpc"
             verified.details["dashboard"] = dash
             verified.details["job_state"] = job_state
-            return verified.to_dict()
-        return StatusResult(
+            return add_command_stdout(verified.to_dict(), merge_command_stdout(local_stdout, verified_stdout))
+        payload = StatusResult(
             target="datasource",
             name=name,
             mode="hpc",
@@ -236,16 +291,17 @@ def datasource_ready(
             message=job_state["message"],
             details={"local_assessment": local_result.to_dict(), "dashboard": dash, "job_state": job_state},
         ).to_dict()
+        return add_command_stdout(payload, local_stdout)
     if not ensure or local_result.status == "ready":
         local_payload = local_result.to_dict()
         local_payload["dashboard"] = dash
-        return local_payload
+        return add_command_stdout(local_payload, local_stdout)
     if local_result.status == FAILED:
         failed_payload = local_result.to_dict()
         failed_payload["dashboard"] = dash
-        return failed_payload
-    job = submit_datasource(name=name, num_processes=num_processes)
-    return StatusResult(
+        return add_command_stdout(failed_payload, local_stdout)
+    job, submit_stdout = submit_datasource(name=name, num_processes=num_processes)
+    payload = StatusResult(
         target="datasource",
         name=name,
         mode="hpc",
@@ -254,6 +310,7 @@ def datasource_ready(
         details={"local_assessment": local_result.to_dict(), "dashboard": dash},
         job=job,
     ).to_dict()
+    return add_command_stdout(payload, merge_command_stdout(local_stdout, submit_stdout))
 
 
 def project_ready(
@@ -267,18 +324,15 @@ def project_ready(
     job_id: str | None = None,
 ) -> dict:
     if mode == "local":
-        result = (
-            ensure_project_local(title, mnemonic, datasources, num_processes, test)
-            if ensure
-            else inspect_project_local(title, mnemonic, datasources, num_processes, test)
-        )
-        return result.to_dict()
-    local_result = inspect_project_local(title, mnemonic, datasources, num_processes, test)
+        runner = ensure_project_local if ensure else inspect_project_local
+        result, command_stdout = capture_command_stdout(runner, title, mnemonic, datasources, num_processes, test)
+        return add_command_stdout(result.to_dict(), command_stdout)
+    local_result, local_stdout = capture_command_stdout(inspect_project_local, title, mnemonic, datasources, num_processes, test)
     dash = dashboard_context()
     if job_id:
         job_state = classify_registry_job(job_id)
         if job_state["status"] in {SUBMITTED, RUNNING}:
-            return StatusResult(
+            payload = StatusResult(
                 target="project",
                 name=title,
                 mode="hpc",
@@ -286,13 +340,14 @@ def project_ready(
                 message=job_state["message"],
                 details={"local_assessment": local_result.to_dict(), "dashboard": dash, "job_state": job_state},
             ).to_dict()
+            return add_command_stdout(payload, local_stdout)
         if job_state["status"] == "completed":
-            verified = inspect_project_local(title, mnemonic, datasources, num_processes, test)
+            verified, verified_stdout = capture_command_stdout(inspect_project_local, title, mnemonic, datasources, num_processes, test)
             verified.mode = "hpc"
             verified.details["dashboard"] = dash
             verified.details["job_state"] = job_state
-            return verified.to_dict()
-        return StatusResult(
+            return add_command_stdout(verified.to_dict(), merge_command_stdout(local_stdout, verified_stdout))
+        payload = StatusResult(
             target="project",
             name=title,
             mode="hpc",
@@ -300,22 +355,23 @@ def project_ready(
             message=job_state["message"],
             details={"local_assessment": local_result.to_dict(), "dashboard": dash, "job_state": job_state},
         ).to_dict()
+        return add_command_stdout(payload, local_stdout)
     if not ensure or local_result.status == "ready":
         local_payload = local_result.to_dict()
         local_payload["dashboard"] = dash
-        return local_payload
+        return add_command_stdout(local_payload, local_stdout)
     if local_result.status != "repairable":
         blocked_payload = local_result.to_dict()
         blocked_payload["dashboard"] = dash
-        return blocked_payload
-    job = submit_project(
+        return add_command_stdout(blocked_payload, local_stdout)
+    job, submit_stdout = submit_project(
         title=title,
         mnemonic=mnemonic,
         datasources=datasources,
         num_processes=num_processes,
         test=test,
     )
-    return StatusResult(
+    payload = StatusResult(
         target="project",
         name=title,
         mode="hpc",
@@ -324,6 +380,7 @@ def project_ready(
         details={"local_assessment": local_result.to_dict(), "dashboard": dash},
         job=job,
     ).to_dict()
+    return add_command_stdout(payload, merge_command_stdout(local_stdout, submit_stdout))
 
 
 def local_preproc_env() -> dict[str, str]:
@@ -336,10 +393,15 @@ def local_preproc_env() -> dict[str, str]:
     return env
 
 
+def local_preproc_log_root() -> Path:
+    return storage_root("local_preproc_logs")
+
+
 def submit_local_preproc(project_name: str, plan_id: int) -> dict[str, object]:
-    LOCAL_PREPROC_LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    log_root = local_preproc_log_root()
+    log_root.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file = LOCAL_PREPROC_LOG_ROOT / f"{project_name}-plan{plan_id}-{timestamp}.log"
+    log_file = log_root / f"{project_name}-plan{plan_id}-{timestamp}.log"
     target_project_name = preproc_project_name(project_name)
     command = [
         str(LOCAL_PREPROC_PYTHON),
@@ -372,12 +434,13 @@ def submit_local_preproc(project_name: str, plan_id: int) -> dict[str, object]:
         "pid": proc.pid,
         "log_file": str(log_file),
         "command": command,
+        "command_stdout": log_file.read_text(encoding="utf-8", errors="replace").strip(),
     }
 
 
 def submit_hpc_preproc(project_name: str, plan_id: int) -> dict[str, object]:
-    job = submit_preproc(project_name, plan_id)
-    return StatusResult(
+    job, submit_stdout = submit_preproc(project_name, plan_id)
+    payload = StatusResult(
         target="preproc",
         name=project_name,
         mode="hpc",
@@ -386,12 +449,38 @@ def submit_hpc_preproc(project_name: str, plan_id: int) -> dict[str, object]:
         details={"plan_id": plan_id, "dashboard": dashboard_context()},
         job=job,
     ).to_dict()
+    return add_command_stdout(payload, submit_stdout)
 
 
 def preproc_ready(project_name: str, plan_id: int, mode: str = "local") -> dict[str, object]:
     if mode == "hpc":
         return submit_hpc_preproc(project_name, plan_id)
     return submit_local_preproc(project_name, plan_id)
+
+
+def delete_project(name: str) -> dict[str, object]:
+    stdout_buffer = StringIO()
+    try:
+        with redirect_stdout(stdout_buffer):
+            deleted = bool(Project(project_title=name).delete(interactive=False))
+    except Exception as exc:
+        payload = StatusResult(
+            target="project",
+            name=name,
+            mode="local",
+            status=FAILED,
+            message=f"Project delete failed: {exc}",
+            details={"error_type": type(exc).__name__, "error": str(exc)},
+        ).to_dict()
+        return add_command_stdout(payload, stdout_buffer.getvalue())
+    payload = StatusResult(
+        target="project",
+        name=name,
+        mode="local",
+        status="completed" if deleted else FAILED,
+        message=f"Deleted project {name}." if deleted else f"Project {name} was not deleted.",
+    ).to_dict()
+    return add_command_stdout(payload, stdout_buffer.getvalue())
 
 
 def train_retry_local(
@@ -609,7 +698,7 @@ def orchestrator_train_request(
                 },
                 next_action="request_complete_args",
             ).to_dict()
-        job = submit_hpc_train(
+        job, submit_stdout = submit_hpc_train(
             project_title=project_title,
             plan=plan,
             fold=fold,
@@ -621,7 +710,7 @@ def orchestrator_train_request(
             wandb=wandb,
             bsf=bsf,
         )
-        return StatusResult(
+        payload = StatusResult(
             target="train",
             name=project_title,
             mode=mode,
@@ -635,6 +724,7 @@ def orchestrator_train_request(
             },
             job=job,
         ).to_dict()
+        return add_command_stdout(payload, submit_stdout)
 
     payload = train_retry_local(
         project_title=project_title,

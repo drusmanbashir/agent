@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from workflow import (
         download_project_nifti_resources,
@@ -20,6 +21,8 @@ else:
         project_dicom_to_nifti,
         upload_project_resources_by_filename,
     )
+
+from agent.storage_roots import storage_root
 
 
 def _menu_prompt(title: str, options: list[str]) -> int:
@@ -181,8 +184,8 @@ def _run_menu() -> int:
     default_root = "/s/insync/datasets/bones"
     default_workers = "8"
     default_project = os.getenv("XNAT_PROJECT", "")
-    default_dest = "/tmp/xnat_downloads"
-    default_resource_folder = "/tmp/xnat_resources"
+    default_dest = str(storage_root("tmp_root") / "xnat_downloads")
+    default_resource_folder = str(storage_root("tmp_root") / "xnat_resources")
     default_resource_label = "LABELMAP"
     while True:
         choice = _menu_prompt(

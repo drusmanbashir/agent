@@ -1,7 +1,7 @@
 gmail:
   enabled: true
-  oauth_client_json: /home/ub/.config/email-agent/oauth_client.json
-  token_json: /s/agent_rw/cache/gmail_token.json
+  oauth_client_json: /s/agent_rw/conf/tokens/gorlani123_oauth_client.json
+  token_json: /s/agent_rw/conf/tokens/gorlani123_google_rw.json
   output_dir: /s/agent_rw/index
 
 mdt:

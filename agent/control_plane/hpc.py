@@ -7,6 +7,7 @@ from pathlib import Path
 
 from agent.control_plane.address_resolver import fran_jobs_page_url
 from agent.control_plane.models import FAILED, JobInfo, RUNNING, SUBMITTED
+from agent.storage_roots import storage_root
 from fran.data.dataregistry import DS
 
 HPC_SUBMIT = Path("/home/ub/code/agent/agent/hpc/cli/hpc_submit_poll_fetch.sh")
@@ -14,11 +15,14 @@ HPC_DATASOURCE_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/datasource.sh")
 HPC_PREPROC_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/preproc.sh")
 HPC_PROJECT_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/project_init.sh")
 HPC_TRAIN_WRAPPER = Path("/home/ub/code/agent/agent/hpc/cli/train.sh")
-HPC_REGISTRY = Path("/s/agent_rw/hpc_logs/job_registry.tsv")
 
 
 def hpc_log_root() -> Path:
-    return HPC_REGISTRY.parent
+    return storage_root("hpc_logs")
+
+
+def hpc_registry_path() -> Path:
+    return hpc_log_root() / "job_registry.tsv"
 
 
 def dashboard_context() -> dict[str, str | None]:
@@ -33,23 +37,26 @@ def dashboard_context() -> dict[str, str | None]:
     }
 
 
-def _submit(command: list[str]) -> JobInfo:
+def _submit(command: list[str]) -> tuple[JobInfo, str]:
     proc = subprocess.run(command, capture_output=True, text=True, check=True)
     output = proc.stdout
     job_id = re.search(r"Submitted batch job (\d+)", output)[1]
     job_dir_match = re.search(r"job_dir=(.+)", output)
     job_dir = job_dir_match[1].strip() if job_dir_match else None
     dash = dashboard_context()
-    return JobInfo(
-        job_id=job_id,
-        command=command,
-        job_dir=job_dir,
-        state=SUBMITTED,
-        dashboard_url=dash["url"],
+    return (
+        JobInfo(
+            job_id=job_id,
+            command=command,
+            job_dir=job_dir,
+            state=SUBMITTED,
+            dashboard_url=dash["url"],
+        ),
+        output.strip(),
     )
 
 
-def submit_datasource(name: str, num_processes: int = 1) -> JobInfo:
+def submit_datasource(name: str, num_processes: int = 1) -> tuple[JobInfo, str]:
     spec = DS[name]
     command = [
         str(HPC_SUBMIT),
@@ -68,7 +75,7 @@ def submit_project(
     datasources: list[str],
     num_processes: int = 1,
     test: bool = False,
-) -> JobInfo:
+) -> tuple[JobInfo, str]:
     command = [
         str(HPC_SUBMIT),
         str(HPC_PROJECT_WRAPPER),
@@ -83,7 +90,7 @@ def submit_project(
     return _submit(command)
 
 
-def submit_preproc(project_name: str, plan_id: int) -> JobInfo:
+def submit_preproc(project_name: str, plan_id: int) -> tuple[JobInfo, str]:
     command = [
         str(HPC_SUBMIT),
         str(HPC_PREPROC_WRAPPER),
@@ -98,34 +105,49 @@ def submit_train(
     plan: int,
     fold: int,
     learning_rate: float,
-    train_indices: int,
+    train_indices: int | None,
     val_every_n_epochs: int,
     run_name: str | None,
     epochs: int = 500,
     wandb: bool = True,
     bsf: bool = True,
-) -> JobInfo:
+) -> tuple[JobInfo, str]:
     command = [
         str(HPC_SUBMIT),
         str(HPC_TRAIN_WRAPPER),
         project_title,
         str(plan),
+        "",
+        "",
+        str(epochs),
         str(fold),
+        "",
+        "",
+        "",
+        str(wandb).lower(),
+        "",
         str(learning_rate),
-        str(train_indices),
+        run_name or "",
+        "",
+        "",
+        "",
         str(val_every_n_epochs),
-        run_name or "none",
-        f"epochs={epochs}",
-        f"wandb={str(wandb).lower()}",
-        f"bsf={str(bsf).lower()}",
+        "" if train_indices is None else str(train_indices),
+        str(bsf).lower(),
+        "",
+        "",
+        "",
+        "",
+        "",
     ]
     return _submit(command)
 
 
 def registry_row(job_id: str) -> dict[str, str] | None:
-    if not HPC_REGISTRY.exists():
+    registry_path = hpc_registry_path()
+    if not registry_path.exists():
         return None
-    with HPC_REGISTRY.open() as handle:
+    with registry_path.open() as handle:
         reader = csv.reader(handle, delimiter="\t")
         for row in reader:
             if not row or row[0] != job_id:
@@ -151,7 +173,7 @@ def classify_registry_job(job_id: str) -> dict[str, str]:
         return {
             "job_id": job_id,
             "status": FAILED,
-            "message": f"Job {job_id} was not found in {HPC_REGISTRY}.",
+            "message": f"Job {job_id} was not found in {hpc_registry_path()}.",
             "log_root": str(hpc_log_root()),
         }
     raw_state = row["state"].strip()

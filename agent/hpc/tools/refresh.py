@@ -87,9 +87,13 @@ def _local_repo_dirty(repo: Path) -> bool:
     return bool(proc.stdout.strip())
 
 
-def _sync_local_repo(repo: Path, branch: str, dry_run: bool) -> int:
+def _sync_local_repo(repo: Path, branch: str, requested_branch: str, dry_run: bool) -> int:
+    print(f"SYNC_LOCAL_REPO repo={repo} branch={branch}")
+    if branch != requested_branch:
+        print(f"WARN local repo branch mismatch repo={repo.name} local={branch} requested={requested_branch}; pushing current local branch")
     dirty = _local_repo_dirty(repo)
     if dirty:
+        print(f"COMMIT_LOCAL_REPO repo={repo}")
         rc = _run(["git", "-C", str(repo), "add", "-A"], dry_run)
         if rc != 0:
             return rc
@@ -99,6 +103,7 @@ def _sync_local_repo(repo: Path, branch: str, dry_run: bool) -> int:
         )
         if rc != 0:
             return rc
+    print(f"PUSH_LOCAL_REPO repo={repo} branch={branch}")
     return _run(["git", "-C", str(repo), "push", "-u", "origin", branch], dry_run)
 
 
@@ -111,11 +116,8 @@ def _sync_local_repos(branch: str, dry_run: bool) -> int:
         if not (repo / ".git").exists():
             print(f"SKIP non-git local repo: {repo}")
             continue
-        print(f"=== LOCAL REPO {repo} ===")
         repo_branch = _local_repo_branch(repo)
-        if repo_branch != branch:
-            print(f"WARN branch mismatch local={repo_branch} requested={branch}; pushing current local branch")
-        rc = _sync_local_repo(repo, repo_branch, dry_run)
+        rc = _sync_local_repo(repo, repo_branch, branch, dry_run)
         if rc != 0:
             return rc
     return 0
@@ -266,7 +268,9 @@ def _print_dataset_plan(
     _print_rel_list("REMOTE_NEWER_KEEP", remote_newer)
 
 
-def _confirm_dataset_apply(dataset_name: str) -> bool:
+def _confirm_dataset_apply(dataset_name: str, auto_yes: bool) -> bool:
+    if auto_yes:
+        return True
     reply = input(f"Apply remote changes for dataset {dataset_name}? (y/n): ").strip().lower()
     return reply in {"y", "yes"}
 
@@ -274,6 +278,7 @@ def _confirm_dataset_apply(dataset_name: str) -> bool:
 def _upload_rel_paths(remote: str, local_root: Path, remote_root: str, rel_paths: list[str], dry_run: bool) -> int:
     if not rel_paths:
         return 0
+    print(f"RSYNC_DATASET_FILES count={len(rel_paths)} local={local_root} remote={remote_root}")
     rc = _ensure_remote_dir(remote, remote_root, dry_run)
     if rc != 0:
         return rc
@@ -311,6 +316,7 @@ def _move_remote_extras(
         return 0
     stamp = _stamp()
     archive_root = _dataset_archive_root(cold_storage, dataset_name, stamp)
+    print(f"ARCHIVE_REMOTE_EXTRAS dataset={dataset_name} count={len(rel_paths)} archive={archive_root}")
     for rel_path in rel_paths:
         src = f"{remote_root.rstrip('/')}/{rel_path}"
         dest = f"{archive_root}/{rel_path}"
@@ -332,12 +338,14 @@ def _remote_cold_storage(local_cold_storage: Path) -> str:
 
 def _refresh_git(remote: str, cold_storage: str, branch: str, dry_run: bool) -> int:
     script = _repo_root() / "cli" / "git_all.sh"
+    print(f"REFRESH_REMOTE_GIT remote={remote} branch={branch}")
     cmd = [str(_repo_root() / "cli" / "hpc_ssh.sh"), "--login", remote, "--script", str(script), "--", "--cold-storage", cold_storage, branch]
     return _run(cmd, dry_run)
 
 
 def _refresh_conf(remote: str, conf_dir: Path, remote_conf_dir: str, dry_run: bool) -> int:
     for local_name, remote_name in CONF_SYNC:
+        print(f"SYNC_CONF_FILE local={conf_dir / local_name} remote={remote_conf_dir.rstrip('/')}/{remote_name}")
         rc = _replace_remote_file(remote, conf_dir / local_name, f"{remote_conf_dir.rstrip('/')}/{remote_name}", dry_run)
         if rc != 0:
             return rc
@@ -347,6 +355,7 @@ def _refresh_conf(remote: str, conf_dir: Path, remote_conf_dir: str, dry_run: bo
 def _refresh_project_status(remote: str, cold_storage: str, dry_run: bool) -> int:
     local_path = _code_root() / "fran" / "fran" / "run" / "project" / "project_status.py"
     remote_path = f"{cold_storage}/code/fran/fran/run/project/project_status.py"
+    print(f"SYNC_PROJECT_STATUS local={local_path} remote={remote_path}")
     return _replace_remote_file(remote, local_path, remote_path, dry_run)
 
 
@@ -354,6 +363,7 @@ def _refresh_rbd_json_cache(remote: str, local_cold_storage: Path, dry_run: bool
     local_path = local_cold_storage / RBD_JSON_REL
     remote_path = _map_local_path_to_hpc_path(str(local_path))
     script = _repo_root() / "cli" / "rbd_json_upload.sh"
+    print(f"SYNC_RBD_JSON local={local_path} remote={remote_path}")
     cmd = [str(script)]
     if dry_run:
         cmd.append("--dry-run")
@@ -361,7 +371,7 @@ def _refresh_rbd_json_cache(remote: str, local_cold_storage: Path, dry_run: bool
     return _run(cmd, dry_run=False)
 
 
-def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names: list[str], dry_run: bool) -> int:
+def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names: list[str], dry_run: bool, auto_yes: bool) -> int:
     local_map = _load_dataset_map(conf_dir / "datasets.yaml")
     remote_map_path = f"{cold_storage}/conf/datasets.yaml"
     proc = _remote_capture(remote, f"cat {shlex.quote(remote_map_path)}")
@@ -370,7 +380,16 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
     remote_map = _load_dataset_map_text(proc.stdout, remote_map_path)
     names = _dataset_names(local_map, remote_map, dataset_names)
     names, skipped_sync_on_demand = _filter_sync_on_demand_datasets(names, explicit=bool(dataset_names))
+    total_local_files = 0
+    total_upload = 0
+    total_archive = 0
+    total_remote_newer = 0
+    unchanged_names = []
+    changed_names = []
+    applied_names = []
+    skipped_apply_names = []
     for dataset_name in names:
+        print(f"DETECT_DATASET_DRIFT dataset={dataset_name}")
         if dataset_name not in local_map or dataset_name not in remote_map:
             raise ConfigError(f"dataset missing from one map: {dataset_name}")
         local_root = Path(_dataset_path(dataset_name, local_map[dataset_name], ("local_folder", "folder", "path"))).expanduser()
@@ -381,6 +400,7 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
             raise ConfigError(f"remote dataset folder must be absolute: {dataset_name} -> {remote_root}")
         local_files = _list_local_dataset_files(local_root)
         remote_files = {}
+        total_local_files += len(local_files)
         if _remote_dir_exists(remote, remote_root, verbose=False):
             remote_files = _list_remote_dataset_files(remote, remote_root, verbose=False)
         upload_missing_rel = sorted(rel_path for rel_path in local_files if rel_path not in remote_files)
@@ -396,6 +416,9 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
             for rel_path in local_files
             if rel_path in remote_files and remote_files[rel_path]["mtime"] > local_files[rel_path]["mtime"]
         )
+        total_upload += len(upload_rel)
+        total_archive += len(move_rel)
+        total_remote_newer += len(remote_newer)
         archive_root = _dataset_archive_root(cold_storage, dataset_name, "YYYYmmdd_HHMMSS")
         bad = [rel_path for rel_path in move_rel if not _is_safe_rel_sync_path(rel_path)]
         if bad:
@@ -411,20 +434,39 @@ def _sync_datasets(remote: str, conf_dir: Path, cold_storage: str, dataset_names
             remote_newer=remote_newer,
         )
         if not upload_rel and not move_rel:
+            unchanged_names.append(dataset_name)
             print(f"NO_CHANGES {dataset_name}")
             continue
+        changed_names.append(dataset_name)
         if dry_run:
+            skipped_apply_names.append(dataset_name)
             print(f"DRY_RUN_SKIP_MUTATION {dataset_name}")
             continue
-        if not _confirm_dataset_apply(dataset_name):
+        if not _confirm_dataset_apply(dataset_name, auto_yes):
+            skipped_apply_names.append(dataset_name)
             print(f"SKIP_MUTATION {dataset_name}")
             continue
+        applied_names.append(dataset_name)
+        print(f"APPLY_DATASET_DRIFT dataset={dataset_name} upload={len(upload_rel)} archive={len(move_rel)}")
         rc = _upload_rel_paths(remote, local_root, remote_root, upload_rel, dry_run)
         if rc != 0:
             return rc
         rc = _move_remote_extras(remote, cold_storage, dataset_name, remote_root, move_rel, dry_run)
         if rc != 0:
             return rc
+    print("-" * 80)
+    print(
+        "DATASET_REFRESH_SUMMARY "
+        f"datasets={len(names)} "
+        f"local_files={total_local_files} "
+        f"upload_or_overwrite={total_upload} "
+        f"archive_remote_extras={total_archive} "
+        f"remote_newer_keep={total_remote_newer}"
+    )
+    print("DATASET_REFRESH_CHANGED " + (", ".join(changed_names) if changed_names else "none"))
+    print("DATASET_REFRESH_APPLIED " + (", ".join(applied_names) if applied_names else "none"))
+    print("DATASET_REFRESH_UNCHANGED " + (", ".join(unchanged_names) if unchanged_names else "none"))
+    print("DATASET_REFRESH_SKIPPED_APPLY " + (", ".join(skipped_apply_names) if skipped_apply_names else "none"))
     if skipped_sync_on_demand:
         print(
             "SKIP sync-on-demand datasets: "
@@ -459,7 +501,7 @@ def main(args: argparse.Namespace) -> int:
     rc = _refresh_rbd_json_cache(remote, local_cold_storage, args.dry_run)
     if rc != 0:
         return rc
-    return _sync_datasets(remote, conf_dir, cold_storage, args.dataset_names, args.dry_run)
+    return _sync_datasets(remote, conf_dir, cold_storage, args.dataset_names, args.dry_run, args.yes)
 
 
 if __name__ == "__main__":

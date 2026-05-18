@@ -4,24 +4,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="/home/ub/mambaforge/envs/dl/bin/python"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/storage_roots.sh"
+load_storage_roots
 
 cd "${REPO_ROOT}"
 
-OUT_ROOT="${HPC_LOGS_LOCAL_ROOT:-${HPC_JOBS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}}"
-SINCLAIR_LOG_ROOT="${HPC_POLL_LOG_DEST:-/s/agent_rw/hpc_logs}"
+OUT_ROOT="${AGENT_HPC_LOG_ROOT}"
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage:
   cli/hpc_poll_logs.sh [last|<job_id>]
 
 Description:
   Canonical poll command for stdout/stderr retrieval.
   - Defaults to the last job ID.
-  - If job_registry.tsv has no rows, resolves last job from newest dir under /s/agent_rw/hpc_logs.
-  - Ensures local copies under /s/agent_rw/hpc_logs/<job_id>/.
-  - Copies canonical files to /s/agent_rw/hpc_logs/<job_id>/std.out and std.err
-    (override root with HPC_POLL_LOG_DEST).
+  - If job_registry.tsv has no rows, resolves last job from newest dir under ${AGENT_HPC_LOG_ROOT}.
+  - Ensures fetched job copies and canonical std.out/std.err under ${AGENT_HPC_LOG_ROOT}/<job_id>/.
   - Echoes stdout first, then always echoes stderr.
 EOF
 }
@@ -250,8 +250,6 @@ job_id="$(resolve_job_id "${job_ref}" || true)"
 
 job_dir="${OUT_ROOT}/${job_id}"
 mkdir -p "${job_dir}"
-sinclair_dir="${SINCLAIR_LOG_ROOT%/}/${job_id}"
-mkdir -p "${sinclair_dir}"
 
 registry_row="$("${SCRIPT_DIR}/job_registry.sh" find "${job_id}" || true)"
 sbatch_file="$(row_field "${registry_row}" 3)"
@@ -339,11 +337,14 @@ fi
 [[ -f "${local_out}" ]] || die "stdout file not found for job ${job_id}"
 [[ -f "${local_err}" ]] || die "stderr file not found for job ${job_id}"
 
-if [[ "${local_out}" != "${sinclair_dir}/std.out" ]]; then
-  cp -f "${local_out}" "${sinclair_dir}/std.out"
+canonical_out="${job_dir}/std.out"
+canonical_err="${job_dir}/std.err"
+
+if [[ "${local_out}" != "${canonical_out}" ]]; then
+  cp -f "${local_out}" "${canonical_out}"
 fi
-if [[ "${local_err}" != "${sinclair_dir}/std.err" ]]; then
-  cp -f "${local_err}" "${sinclair_dir}/std.err"
+if [[ "${local_err}" != "${canonical_err}" ]]; then
+  cp -f "${local_err}" "${canonical_err}"
 fi
 
 echo "job_id=${job_id}"
@@ -354,11 +355,11 @@ if [[ -n "${remote_out}" || -n "${remote_err}" ]]; then
   echo "remote_stdout=${remote_out:-unknown}"
   echo "remote_stderr=${remote_err:-unknown}"
 fi
-echo "local_stdout=${sinclair_dir}/std.out"
-echo "local_stderr=${sinclair_dir}/std.err"
+echo "local_stdout=${canonical_out}"
+echo "local_stderr=${canonical_err}"
 echo
 echo "===== STDOUT (${job_id}) ====="
-cat "${sinclair_dir}/std.out"
+cat "${canonical_out}"
 echo
 
 if [[ -t 0 ]]; then
@@ -371,5 +372,5 @@ fi
 if [[ "${show_stderr}" =~ ^([yY]|[yY][eE][sS])$ ]]; then
   echo
   echo "===== STDERR (${job_id}) ====="
-  cat "${sinclair_dir}/std.err"
+  cat "${canonical_err}"
 fi

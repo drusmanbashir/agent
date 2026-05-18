@@ -10,6 +10,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from agent.storage_roots import storage_root
+
 CONFIG_ENV = "FRAN_CONF"
 CONFIG_NAME = "hpc.yaml"
 COMMON_CONFIG_NAME = "config.yaml"
@@ -24,7 +26,7 @@ class ConfigError(RuntimeError):
 
 
 def _default_backup_root() -> Path:
-    return Path(os.environ.get(BACKUP_ROOT_ENV, "/tmp/hpc_agent_backups")).expanduser()
+    return Path(os.environ.get(BACKUP_ROOT_ENV, str(storage_root("tmp_root") / "hpc_agent_backups"))).expanduser()
 
 
 def _hpc_config_path(config_path: Path | None = None) -> Path:

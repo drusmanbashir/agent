@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Missing {{ asset }} for {{ job.job_id }}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f4f6fa;
+      color: #18212b;
+      font: 14px/1.5 sans-serif;
+    }
+    .card {
+      max-width: 860px;
+      background: #fff;
+      border: 1px solid #d6dbe4;
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    a { color: #124a8a; text-decoration: none; }
+    pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>Missing {{ asset }} for job {{ job.job_id }}</h1>
+    <p>Requested file is not present locally yet.</p>
+    <p class="mono">{{ path }}</p>
+    {% if raw_paths %}
+      <p>Raw local files already present:</p>
+      <pre>{% for raw_path in raw_paths %}{{ raw_path }}
+{% endfor %}</pre>
+    {% endif %}
+    <p><a href="/?selected={{ job.job_id }}&tab={{ 'closed' if job.closed else 'active' }}&scope={{ scope }}">Back to job details</a></p>
+  </section>
+</body>
+</html>

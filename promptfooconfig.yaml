@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: ACP deterministic parser evals
+
+prompts:
+  - "{{input}}"
+
+providers:
+  - id: file://agent/control_plane/promptfoo_provider.py
+    label: acp-deterministic-parser
+    config:
+      operation: parse_train_intent
+
+tests:
+  - description: parse local train intent with defaults
+    vars:
+      input: train kits23 plan 3 fold 0
+      expected_intent: train
+      expected_project_title: kits23
+      expected_plan: 3
+      expected_mode: local
+      expected_fold: 0
+      expected_learning_rate: 0.01
+      expected_val_every_n_epochs: 2
+      expected_model_call: false
+    assert:
+      - type: python
+        value: file://agent/control_plane/promptfoo_assert.py:assert_payload_matches_expected
+
+  - description: parse hpc train intent with explicit knobs
+    vars:
+      input: train kits23 plan 3 fold 0 lr 0.01 val 2 indices 40 hpc run smoke
+      expected_intent: train
+      expected_project_title: kits23
+      expected_plan: 3
+      expected_mode: hpc
+      expected_fold: 0
+      expected_learning_rate: 0.01
+      expected_val_every_n_epochs: 2
+      expected_train_indices: 40
+      expected_run_name: smoke
+      expected_model_call: false
+    assert:
+      - type: python
+        value: file://agent/control_plane/promptfoo_assert.py:assert_payload_matches_expected
+
+  - description: reject non-train prompt deterministically
+    vars:
+      input: summarize kits23
+      expected_intent: unknown
+      expected_message_substring: "Expected a narrow train intent"
+      expected_model_call: false
+    assert:
+      - type: python
+        value: file://agent/control_plane/promptfoo_assert.py:assert_payload_matches_expected

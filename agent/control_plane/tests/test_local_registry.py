@@ -8,10 +8,9 @@ from pathlib import Path
 import agent.control_plane.hpc as hpc
 import agent.control_plane.local_registry as local_registry
 from agent.control_plane.local_registry import (
-    LOCAL_LOG_ROOT,
-    LOCAL_LOG_ROOT_FALLBACK,
     _submit_local_train_retry_job,
     build_local_job_crash_packet,
+    default_local_log_root,
     job_registry,
     logs_root,
     poll_local_job,
@@ -117,23 +116,18 @@ def test_local_train_retry_failure_crash_packet(tmp_path: Path, monkeypatch) -> 
     assert "simulated failure" in "\n".join(crash_packet["stderr_tail"])
 
 
-def test_logs_root_falls_back_when_primary_unavailable(monkeypatch, tmp_path: Path) -> None:
-    fallback = tmp_path / "fallback"
-    monkeypatch.setattr(local_registry, "LOCAL_LOG_ROOT_FALLBACK", fallback)
-    monkeypatch.setattr(local_registry, "_preferred_log_root", lambda primary, fallback_path: fallback_path)
+def test_logs_root_uses_storage_roots_config(monkeypatch, tmp_path: Path) -> None:
+    configured = tmp_path / "local"
+    monkeypatch.setattr(local_registry, "storage_root", lambda name: configured)
 
-    resolved = logs_root()
-
-    assert resolved == fallback
-
-
-def test_local_registry_defaults_are_split_from_hpc() -> None:
-    assert LOCAL_LOG_ROOT == Path("/s/agent_rw/local_acp_logs")
-    assert LOCAL_LOG_ROOT_FALLBACK == Path.home() / ".agent/local_acp_logs"
+    assert default_local_log_root() == configured
+    assert logs_root() == configured
+    assert configured.exists()
 
 
 def test_dashboard_context_points_to_fran_jobs_page(monkeypatch) -> None:
     monkeypatch.setenv("FRAN_JOBS_PAGE_URL", "http://fran.local/jobs")
+    monkeypatch.setattr(hpc, "storage_root", lambda name: Path("/s/agent_rw/logs/hpc"))
 
     payload = hpc.dashboard_context()
 

@@ -8,6 +8,9 @@ PYTHON_BIN="${HPC_PYTHON_BIN:-/home/ub/mambaforge/envs/dl/bin/python}"
 SSH_SCRIPT="${HPC_SSH_SCRIPT:-${SCRIPT_DIR}/hpc_ssh.sh}"
 RSYNC_SCRIPT="${HPC_RSYNC_SCRIPT:-${SCRIPT_DIR}/hpc_rsync.sh}"
 REGISTRY_SCRIPT="${HPC_JOB_REGISTRY_SCRIPT:-${SCRIPT_DIR}/job_registry.sh}"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/storage_roots.sh"
+load_storage_roots
 
 usage() {
   cat <<'EOF'
@@ -89,7 +92,7 @@ for arg in "${SBATCH_EXTRA_ARGS[@]}"; do
 done
 
 if [[ "${has_mem_override}" == "true" ]]; then
-  tmp_submit_file="$(mktemp "${TMPDIR:-/tmp}/hpc-submit.XXXXXX.sh")"
+  tmp_submit_file="$(mktemp "${AGENT_TMP_ROOT}/hpc-submit.XXXXXX.sh")"
   awk '
     /^#SBATCH[[:space:]]+--mem([=[:space:]].*)?$/ { next }
     /^#SBATCH[[:space:]]+--mem-per-cpu([=[:space:]].*)?$/ { next }
@@ -102,7 +105,7 @@ fi
 
 cd "${REPO_ROOT}"
 
-OUT_ROOT="${HPC_LOGS_LOCAL_ROOT:-${HPC_JOBS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}}"
+OUT_ROOT="${AGENT_HPC_LOG_ROOT}"
 REMOTE_DIR="${HPC_SBATCH_REMOTE_DIR:-.hpc/sbatch}"
 LOGIN="${HPC_LOGIN:-$("${PYTHON_BIN}" -m tools.cli load_pwd --field login)}"
 

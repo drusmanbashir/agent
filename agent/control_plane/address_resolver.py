@@ -3,11 +3,12 @@ from __future__ import annotations
 import os
 import sys
 
-DEFAULT_FRAN_WEBAPP_APP_DIR = "/home/ub/code/fran"
-DEFAULT_FRAN_WEBAPP_APP = "agent.webapp.api.main:app"
+REPO_ROOT = "/home/ub/code/agent"
+DEFAULT_FRAN_WEBAPP_APP_DIR = REPO_ROOT
+DEFAULT_FRAN_WEBAPP_APP = "agent.control_plane.web:app"
 DEFAULT_FRAN_WEBAPP_HOST = "127.0.0.1"
-DEFAULT_FRAN_WEBAPP_PORT = "8000"
-DEFAULT_FRAN_JOBS_PATH = "/hpc/jobs"
+DEFAULT_FRAN_WEBAPP_PORT = "8780"
+DEFAULT_FRAN_JOBS_PATH = "/"
 
 
 def _env_or_default(name: str, default: str) -> str:

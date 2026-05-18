@@ -11,13 +11,12 @@ from pathlib import Path
 
 from agent.control_plane.models import FAILED, JobInfo, RUNNING, SUBMITTED
 from agent.hpc.tools.job_registry import JobRecord, JobRegistry, read_key_value_file
+from agent.storage_roots import storage_root
 
 AGENT_REPO_ROOT = Path("/home/ub/code/agent")
 FRAN_REPO_ROOT = Path("/home/ub/code/fran")
 LOCAL_TRAIN_PYTHON = Path("/home/ub/mambaforge/envs/dl/bin/python")
 LOCAL_TRAIN_ENTRYPOINT = Path("/home/ub/code/fran/fran/run/training/train_retry.py")
-LOCAL_LOG_ROOT = Path("/s/agent_rw/local_acp_logs")
-LOCAL_LOG_ROOT_FALLBACK = Path.home() / ".agent/local_acp_logs"
 LOCAL_ORCH_PROVIDER = "ollama"
 LOCAL_ORCH_MODEL = ""
 LOCAL_ORCH_ESCALATION_TARGET = ""
@@ -38,27 +37,21 @@ def local_job_id() -> str:
     return f"local-{stamp}-{uuid.uuid4().hex[:8]}"
 
 
-def _preferred_log_root(primary: Path, fallback: Path) -> Path:
-    selected = primary.expanduser()
-    probe = selected if selected.exists() else selected.parent
-    if probe.exists() and os.access(probe, os.W_OK):
-        return selected
-    return fallback.expanduser()
+def default_local_log_root() -> Path:
+    return storage_root("local_acp_logs")
 
 
 def logs_root(root: Path | None = None) -> Path:
-    if root is not None:
-        resolved = root.expanduser()
-        resolved.mkdir(parents=True, exist_ok=True)
-        return resolved
-
-    selected = _preferred_log_root(LOCAL_LOG_ROOT, LOCAL_LOG_ROOT_FALLBACK)
-    selected.mkdir(parents=True, exist_ok=True)
-    return selected
+    resolved = default_local_log_root() if root is None else root.expanduser()
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
 
 
 def job_registry(root: Path | None = None) -> JobRegistry:
-    return JobRegistry(root=logs_root(root))
+    registry = JobRegistry(root=logs_root(root))
+    registry.path.parent.mkdir(parents=True, exist_ok=True)
+    registry.path.touch(exist_ok=True)
+    return registry
 
 
 def local_train_env(pythonpath_roots: list[str] | None = None) -> dict[str, str]:
@@ -68,6 +61,7 @@ def local_train_env(pythonpath_roots: list[str] | None = None) -> dict[str, str]
     if "PYTHONPATH" in env and env["PYTHONPATH"]:
         pythonpath_entries.append(env["PYTHONPATH"])
     env["FRAN_CONF"] = "/s/fran_storage/conf"
+    env["MPLBACKEND"] = "Agg"
     env["PYTHONPATH"] = ":".join(pythonpath_entries)
     return env
 

@@ -13,9 +13,41 @@ APP="$(resolve uvicorn-app)"
 HOST="$(resolve uvicorn-host)"
 PORT="$(resolve uvicorn-port)"
 PATTERN="$(resolve uvicorn-pattern)"
+JOBS_URL="$(resolve jobs-url)"
 
 start() {
+  if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+    open_when_ready &
+  fi
   exec uvicorn --app-dir "$APP_DIR" "$APP" --host "$HOST" --port "$PORT" "$@"
+}
+
+open_when_ready() {
+  "${PYTHON_BIN}" - <<PY >/dev/null 2>&1
+import subprocess
+import time
+import urllib.request
+import webbrowser
+
+health_url = "http://${HOST}:${PORT}/healthz"
+jobs_url = "${JOBS_URL}"
+
+deadline = time.time() + 20
+while time.time() < deadline:
+    try:
+        with urllib.request.urlopen(health_url, timeout=1) as resp:
+            if resp.status == 200:
+                break
+    except Exception:
+        time.sleep(0.25)
+else:
+    raise SystemExit(0)
+
+try:
+    subprocess.Popen(["xdg-open", jobs_url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+except FileNotFoundError:
+    webbrowser.open(jobs_url)
+PY
 }
 
 stop() {

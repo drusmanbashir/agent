@@ -21,11 +21,7 @@ POLL_SCRIPT = REPO_ROOT / "cli" / "hpc_poll_logs.sh"
 
 
 def poll_subprocess_env(logs_root: Path) -> dict[str, str]:
-    env = dict(os.environ)
-    root = str(logs_root)
-    env["HPC_LOGS_LOCAL_ROOT"] = root
-    env["HPC_POLL_LOG_DEST"] = root
-    return env
+    return dict(os.environ)
 
 
 def display_available() -> bool:

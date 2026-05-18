@@ -3,7 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-OUT_ROOT="${HPC_LOGS_LOCAL_ROOT:-${HPC_JOBS_LOCAL_ROOT:-/s/agent_rw/hpc_logs}}"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/storage_roots.sh"
+load_storage_roots
+OUT_ROOT="${AGENT_HPC_LOG_ROOT}"
 SUBMIT_SCRIPT="${HPC_RESUBMIT_SUBMIT_SCRIPT:-${SCRIPT_DIR}/hpc_submit_poll_fetch.sh}"
 
 usage() {

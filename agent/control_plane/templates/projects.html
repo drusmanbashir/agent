@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="header">
+      <div>
+        <h1 class="title">Projects</h1>
+        <p class="muted">Project inspection and readiness tools in the same card, table, and button language as the dashboard.</p>
+      </div>
+      <div class="tabs" style="margin-bottom: 0;">
+        <a class="tab {% if project_mode == 'local' %}active{% endif %}" href="/projects?project={{ project_name }}&mode=local">Local</a>
+        <a class="tab {% if project_mode == 'hpc' %}active{% endif %}" href="/projects?project={{ project_name }}&mode=hpc">HPC</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <div class="left-pane">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Inspect project</h2>
+            <p class="muted">Load plan state for the selected execution environment.</p>
+          </div>
+          <span class="badge done">{{ project_mode|upper }}</span>
+        </div>
+        <form action="/projects/inspect" method="post" class="stack">
+          <input type="hidden" name="mode" value="{{ project_mode }}">
+          <label class="form-label">
+            Project
+            <select id="project" name="project">
+              <option value="">Select a project</option>
+              {% for item in projects %}
+                <option value="{{ item.name }}" {% if project_name == item.name %}selected{% endif %}>{{ item.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="toolbar">
+            <button type="submit">Load plans</button>
+            <button
+              type="submit"
+              formaction="/projects/delete"
+              formmethod="post"
+              onclick="return confirm('Delete selected project? This cannot be undone.');"
+              style="border-color: #b42318; color: #b42318;"
+            >
+              Delete project
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Project readiness</h2>
+            <p class="muted">Run the existing project tool against the active environment toggle.</p>
+          </div>
+        </div>
+        <form action="/project/ready" method="post" class="stack">
+          <input type="hidden" name="mode" value="{{ project_mode }}">
+          <div class="field-grid">
+            <label class="form-label">
+              Title
+              <input name="title" type="text" required value="{{ project_form.title }}">
+            </label>
+            <label class="form-label">
+              Mnemonic
+              <input name="mnemonic" type="text" required value="{{ project_form.mnemonic }}">
+            </label>
+          </div>
+          <label class="form-label">
+            Datasources
+            <textarea name="datasources">{{ project_form.datasources }}</textarea>
+          </label>
+          <div class="field-grid">
+            <label class="form-label">
+              num_processes
+              <input name="num_processes" type="number" min="1" value="{{ project_form.num_processes }}">
+            </label>
+            <label class="form-label">
+              job_id
+              <input name="job_id" type="text" value="{{ project_form.job_id }}">
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" name="ensure" value="true" {% if project_form.ensure %}checked{% endif %}> ensure</label>
+            <label><input type="checkbox" name="test" value="true" {% if project_form.test %}checked{% endif %}> test</label>
+          </div>
+          <div class="toolbar">
+            <button type="submit">Run project check</button>
+          </div>
+        </form>
+
+        {% if project_result %}
+          <h3 class="section-title" style="margin-top: 18px;">Result</h3>
+          <dl class="kv">
+            <dt>status</dt>
+            <dd>{{ project_result.status }}</dd>
+            <dt>target</dt>
+            <dd>{{ project_result.target }}</dd>
+            <dt>mode</dt>
+            <dd>{{ project_result.mode }}</dd>
+            <dt>next_action</dt>
+            <dd>{{ project_result.next_action or "-" }}</dd>
+          </dl>
+          <details style="margin-top: 12px;">
+            <summary>Raw details</summary>
+            <pre style="margin-top: 10px;">{{ project_result | tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </section>
+    </div>
+
+    <div class="right-pane">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Loaded project</h2>
+            <p class="muted">Plans, patch sizes, and preproc actions stay here.</p>
+          </div>
+          {% if project_payload %}
+            <span class="muted">{{ project_payload.project }} | cases={{ project_payload.num_cases }}</span>
+          {% endif %}
+        </div>
+
+        {% if project_payload %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Plan</th>
+                  <th>Mode</th>
+                  <th>Patch</th>
+                  <th>Preproc</th>
+                  <th>Source</th>
+                  <th>Final</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for plan in project_payload.plans %}
+                  <tr>
+                    <td>{{ plan.plan_id }}</td>
+                    <td>{{ plan.mode }}</td>
+                    <td>{{ plan.patch_dims }}</td>
+                    <td>{{ plan.preprocessed }}</td>
+                    <td>{{ plan.status_source }}</td>
+                    <td>{{ plan.status_plan_ds }}</td>
+                    <td>
+                      <form method="post" action="/projects/preproc">
+                        <input type="hidden" name="project_name" value="{{ project_payload.project }}">
+                        <input type="hidden" name="plan_id" value="{{ plan.plan_id }}">
+                        <input type="hidden" name="mode" value="{{ project_mode }}">
+                        <button type="submit">Preproc</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty">Load a project to inspect plans and trigger preproc.</div>
+        {% endif %}
+
+        {% if preproc_result %}
+          <h3 class="section-title" style="margin-top: 18px;">Preproc result</h3>
+          <dl class="kv">
+            <dt>status</dt>
+            <dd>{{ preproc_result.status }}</dd>
+            <dt>target</dt>
+            <dd>{{ preproc_result.target }}</dd>
+            <dt>mode</dt>
+            <dd>{{ preproc_result.mode }}</dd>
+            <dt>next_action</dt>
+            <dd>{{ preproc_result.next_action or "-" }}</dd>
+          </dl>
+          <details style="margin-top: 12px;">
+            <summary>Raw details</summary>
+            <pre style="margin-top: 10px;">{{ preproc_result | tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Datasource readiness</h2>
+            <p class="muted">Run the datasource tool against the same local or HPC toggle.</p>
+          </div>
+        </div>
+        <form action="/datasource/ready" method="post" class="stack">
+          <input type="hidden" name="mode" value="{{ project_mode }}">
+          <label class="form-label">
+            Name
+            <input name="name" type="text" required value="{{ datasource_form.name }}">
+          </label>
+          <div class="field-grid">
+            <label class="form-label">
+              num_processes
+              <input name="num_processes" type="number" min="1" value="{{ datasource_form.num_processes }}">
+            </label>
+            <label class="form-label">
+              job_id
+              <input name="job_id" type="text" value="{{ datasource_form.job_id }}">
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" name="ensure" value="true" {% if datasource_form.ensure %}checked{% endif %}> ensure</label>
+          </div>
+          <div class="toolbar">
+            <button type="submit">Run datasource check</button>
+          </div>
+        </form>
+
+        {% if datasource_result %}
+          <h3 class="section-title" style="margin-top: 18px;">Datasource result</h3>
+          <dl class="kv">
+            <dt>status</dt>
+            <dd>{{ datasource_result.status }}</dd>
+            <dt>target</dt>
+            <dd>{{ datasource_result.target }}</dd>
+            <dt>mode</dt>
+            <dd>{{ datasource_result.mode }}</dd>
+            <dt>next_action</dt>
+            <dd>{{ datasource_result.next_action or "-" }}</dd>
+          </dl>
+          <details style="margin-top: 12px;">
+            <summary>Raw details</summary>
+            <pre style="margin-top: 10px;">{{ datasource_result | tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Command stdout</h2>
+        <p class="muted">Latest captured stdout or launch log from project-page actions.</p>
+      </div>
+    </div>
+    {% if command_output %}
+      <pre>{{ command_output }}</pre>
+    {% else %}
+      <div class="empty">No command stdout captured yet.</div>
+    {% endif %}
+  </section>
+{% endblock %}

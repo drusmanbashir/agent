@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "promptfoo": {
+      "command": "npx",
+      "args": ["promptfoo", "mcp", "--transport", "stdio"],
+      "env": {
+        "PROMPTFOO_PYTHON": "/home/ub/mambaforge/envs/dl/bin/python"
+      }
+    }
+  }
+}

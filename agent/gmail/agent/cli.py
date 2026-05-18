@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import shutil
 import subprocess
 import sys
@@ -12,7 +12,7 @@ import urllib.request
 import yaml
 
 from agent.config import load_config
-from agent.gmail_briefing import run_gmail_briefing
+from agent.gmail_briefing import SCOPES, _load_creds, create_calendar_alert, run_gmail_briefing
 from agent.secret_store import load_shared_secrets
 from agent.mdt_schedule import (
     build_friday_notification,
@@ -26,6 +26,7 @@ from agent.paths import Paths, assert_read_only_source
 from agent.revalidation.gmail_advisor import run_gmail_advisor
 from agent.revalidation.rules import init_rules_if_missing, rules_show
 from agent.revalidation.advise import advise
+from googleapiclient.discovery import build
 
 
 def _default_config_path() -> Path:
@@ -247,6 +248,18 @@ def main(argv=None) -> int:
     gmail_brief.add_argument("--out", default="")
     gmail_brief.add_argument("--oauth-client-json", default="")
     gmail_brief.add_argument("--token-json", default="")
+    cal_alert = sub.add_parser(
+        "calendar-alert",
+        help="create a Google Calendar alert event with no invites",
+    )
+    cal_alert.add_argument("--calendar-id", default="primary")
+    cal_alert.add_argument("--title", required=True)
+    cal_alert.add_argument("--start", required=True, help="ISO datetime")
+    cal_alert.add_argument("--end", required=True, help="ISO datetime")
+    cal_alert.add_argument("--description", default="")
+    cal_alert.add_argument("--popup-minutes", type=int, default=30)
+    cal_alert.add_argument("--oauth-client-json", default="")
+    cal_alert.add_argument("--token-json", default="")
     mdt_check = sub.add_parser(
         "mdt-check",
         help="parse MDT ODS sheet and report next week's meetings for an initials code",
@@ -338,7 +351,7 @@ def main(argv=None) -> int:
         default_oauth = Path(
             os.getenv("GMAIL_OAUTH_CLIENT_JSON", str(Path.home() / ".config" / "gmail-agent" / "oauth_client.json"))
         )
-        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json"))
+        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json"))
         default_output_dir = Path(os.getenv("GMAIL_OUTPUT_DIR", "/s/agent_rw/index"))
 
         oauth_client_json = Path(args.oauth_client_json or gm.get("oauth_client_json", default_oauth))
@@ -363,6 +376,36 @@ def main(argv=None) -> int:
         print(f"wrote {out}")
         return 0
 
+    if args.cmd == "calendar-alert":
+        config_path = Path(args.config)
+        if config_path.exists():
+            with config_path.open("r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+        else:
+            raw = {}
+        gm = raw.get("gmail", {})
+
+        default_oauth = Path(
+            os.getenv("GMAIL_OAUTH_CLIENT_JSON", str(Path.home() / ".config" / "gmail-agent" / "oauth_client.json"))
+        )
+        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json"))
+
+        oauth_client_json = Path(args.oauth_client_json or gm.get("oauth_client_json", default_oauth))
+        token_json = Path(args.token_json or gm.get("token_json", default_token))
+        creds = _load_creds(oauth_client_json=oauth_client_json, token_json=token_json, scopes=SCOPES)
+        calendar_svc = build("calendar", "v3", credentials=creds)
+        event = create_calendar_alert(
+            calendar_svc=calendar_svc,
+            calendar_id=args.calendar_id,
+            title=args.title,
+            start=datetime.fromisoformat(args.start),
+            end=datetime.fromisoformat(args.end),
+            description=args.description,
+            popup_minutes=args.popup_minutes,
+        )
+        print(event.get("htmlLink", event.get("id", "created")))
+        return 0
+
     if args.cmd == "mdt-check":
         config_path = Path(args.config)
         if config_path.exists():
@@ -380,7 +423,7 @@ def main(argv=None) -> int:
         default_oauth = Path(
             os.getenv("GMAIL_OAUTH_CLIENT_JSON", str(Path.home() / ".config" / "gmail-agent" / "oauth_client.json"))
         )
-        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json"))
+        default_token = Path(os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json"))
 
         sheet_path = Path(args.sheet or mdt_cfg.get("sheet", default_sheet))
         spreadsheet_id = args.spreadsheet_id or mdt_cfg.get(
@@ -531,7 +574,7 @@ def main(argv=None) -> int:
                 os.getenv("GMAIL_OAUTH_CLIENT_JSON", str(Path.home() / ".config" / "gmail-agent" / "oauth_client.json")),
             )
         )
-        token_json = Path(gm.get("token_json", os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))
+        token_json = Path(gm.get("token_json", os.getenv("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")))
 
         out = run_gmail_advisor(
             agent_root=p.agent_root,

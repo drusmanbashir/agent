@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="header">
+      <div>
+        <h1 class="title">HPC Jobs Dashboard</h1>
+        <p class="muted">Registry: <span class="mono">{{ registry_path }}</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Background activity</h2>
+        <p class="muted">Global actions stay here. Job details stay in the selected pane.</p>
+      </div>
+      <div class="toolbar">
+        <a class="button" href="/?selected={{ view.selected }}&tab={{ view.tab }}&sort={{ view.sort }}&direction={{ view.direction }}&limit={{ view.limit }}&scope={{ view.scope }}">Reload page</a>
+        <form method="post" action="/actions/global/poll-all-active">
+          <input type="hidden" name="selected" value="{{ view.selected }}">
+          <input type="hidden" name="tab" value="{{ view.tab }}">
+          <input type="hidden" name="sort" value="{{ view.sort }}">
+          <input type="hidden" name="direction" value="{{ view.direction }}">
+          <input type="hidden" name="limit" value="{{ view.limit }}">
+          <input type="hidden" name="scope" value="{{ view.scope }}">
+          <button type="submit">Poll all active jobs</button>
+        </form>
+        <form method="post" action="/actions/global/refresh-hpc">
+          <input type="hidden" name="selected" value="{{ view.selected }}">
+          <input type="hidden" name="tab" value="{{ view.tab }}">
+          <input type="hidden" name="sort" value="{{ view.sort }}">
+          <input type="hidden" name="direction" value="{{ view.direction }}">
+          <input type="hidden" name="limit" value="{{ view.limit }}">
+          <input type="hidden" name="scope" value="{{ view.scope }}">
+          <button type="submit">Refresh HPC state</button>
+        </form>
+      </div>
+    </div>
+    <div class="filters">
+      <span class="badge {{ 'running' if activity.running else 'done' }}">{{ 'RUNNING' if activity.running else 'IDLE' }}</span>
+      <strong>{{ activity.label }}</strong>
+      <span class="muted">started {{ activity.started_at }}</span>
+      <span class="muted">finished {{ activity.finished_at }}</span>
+      {% if activity.detail %}
+        <span class="mono">{{ activity.detail }}</span>
+      {% endif %}
+    </div>
+    {% if activity_output %}
+      <pre>{{ activity_output }}</pre>
+    {% else %}
+      <div class="empty">No background action output yet.</div>
+    {% endif %}
+  </section>
+
+  <div class="layout">
+    <div class="left-pane">
+      <section class="card">
+        <form method="get" action="/" class="filters">
+          <label class="form-label">
+            Execution environment
+            <select name="scope">
+              <option value="hpc" {% if view.scope == 'hpc' %}selected{% endif %}>HPC</option>
+              <option value="local" {% if view.scope == 'local' %}selected{% endif %}>Local</option>
+            </select>
+          </label>
+          <label class="form-label">
+            Show rows
+            <select name="limit">
+              {% for option in limit_options %}
+                <option value="{{ option }}" {% if view.limit == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <input type="hidden" name="selected" value="{{ view.selected }}">
+          <input type="hidden" name="tab" value="{{ view.tab }}">
+          <input type="hidden" name="sort" value="{{ view.sort }}">
+          <input type="hidden" name="direction" value="{{ view.direction }}">
+          <button type="submit">Apply</button>
+        </form>
+
+        <div class="tabs">
+          <a class="tab {% if view.tab == 'active' %}active{% endif %}" href="/?selected={{ view.selected }}&tab=active&sort={{ view.sort }}&direction={{ view.direction }}&limit={{ view.limit }}&scope={{ view.scope }}">Active Jobs ({{ active_jobs|length }})</a>
+          <a class="tab {% if view.tab == 'closed' %}active{% endif %}" href="/?selected={{ view.selected }}&tab=closed&sort={{ view.sort }}&direction={{ view.direction }}&limit={{ view.limit }}&scope={{ view.scope }}">Closed Jobs ({{ closed_jobs|length }})</a>
+        </div>
+
+        {% if jobs %}
+          <table>
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>State</th>
+                <th>Job name</th>
+                <th>Submitted</th>
+                <th>Last polled</th>
+                <th>Exit code</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for job in jobs %}
+                <tr class="{% if selected_job and job.job_id == selected_job.job_id %}selected{% endif %}">
+                  <td class="mono"><a href="/?selected={{ job.job_id }}&tab={{ view.tab }}&sort={{ view.sort }}&direction={{ view.direction }}&limit={{ view.limit }}&scope={{ view.scope }}">{{ job.job_id }}</a></td>
+                  <td>
+                    <span class="badge {% if 'FAILED' in job.state or 'CANCELLED' in job.state %}failed{% elif job.closed %}done{% else %}running{% endif %}">{{ job.state }}</span>
+                  </td>
+                  <td>{{ job.job_name }}</td>
+                  <td class="mono">{{ job.display_submitted_at }}</td>
+                  <td class="mono">{{ job.display_last_polled_at }}</td>
+                  <td class="mono">{{ job.exit_code }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No {{ view.tab }} jobs in {{ view.scope }} scope.</div>
+        {% endif %}
+      </section>
+    </div>
+
+    <div class="right-pane sticky">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Job details</h2>
+            <p class="muted">Selected job owns this pane.</p>
+          </div>
+          {% if selected_job %}
+            <div class="detail-actions">
+              <form method="post" action="/actions/job/{{ selected_job.job_id }}/poll">
+                <input type="hidden" name="selected" value="{{ selected_job.job_id }}">
+                <input type="hidden" name="tab" value="{{ view.tab }}">
+                <input type="hidden" name="sort" value="{{ view.sort }}">
+                <input type="hidden" name="direction" value="{{ view.direction }}">
+                <input type="hidden" name="limit" value="{{ view.limit }}">
+                <input type="hidden" name="scope" value="{{ view.scope }}">
+                <button type="submit">Poll job</button>
+              </form>
+              <form method="post" action="/actions/job/{{ selected_job.job_id }}/cancel">
+                <input type="hidden" name="selected" value="{{ selected_job.job_id }}">
+                <input type="hidden" name="tab" value="{{ view.tab }}">
+                <input type="hidden" name="sort" value="{{ view.sort }}">
+                <input type="hidden" name="direction" value="{{ view.direction }}">
+                <input type="hidden" name="limit" value="{{ view.limit }}">
+                <input type="hidden" name="scope" value="{{ view.scope }}">
+                <button type="submit">Cancel job</button>
+              </form>
+              <form method="post" action="/actions/job/{{ selected_job.job_id }}/resubmit">
+                <input type="hidden" name="selected" value="{{ selected_job.job_id }}">
+                <input type="hidden" name="tab" value="{{ view.tab }}">
+                <input type="hidden" name="sort" value="{{ view.sort }}">
+                <input type="hidden" name="direction" value="{{ view.direction }}">
+                <input type="hidden" name="limit" value="{{ view.limit }}">
+                <input type="hidden" name="scope" value="{{ view.scope }}">
+                <button type="submit">Resubmit job</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if selected_job %}
+          <dl class="kv">
+            {% for key, value in summary_pairs %}
+              <dt>{{ key }}</dt>
+              <dd class="{% if key == 'job_id' or key.endswith('_at') or key.endswith('_dir') %}mono{% endif %}">{{ value }}</dd>
+            {% endfor %}
+          </dl>
+
+          <div class="links" style="margin-top: 16px;">
+            <a href="/jobs/{{ selected_job.job_id }}/stdout?scope={{ view.scope }}">stdout</a>
+            <a href="/jobs/{{ selected_job.job_id }}/stderr?scope={{ view.scope }}">stderr</a>
+            <a href="/jobs/{{ selected_job.job_id }}/poll-log?scope={{ view.scope }}">poll.log</a>
+          </div>
+
+          {% if job_meta_pairs %}
+            <h3 class="section-title" style="margin-top: 18px;">job.meta</h3>
+            <pre>{% for key, value in job_meta_pairs %}{{ key }}={{ value }}
+{% endfor %}</pre>
+          {% endif %}
+
+          {% if worker_meta_pairs %}
+            <h3 class="section-title" style="margin-top: 18px;">worker.meta</h3>
+            <pre>{% for key, value in worker_meta_pairs %}{{ key }}={{ value }}
+{% endfor %}</pre>
+          {% endif %}
+        {% else %}
+          <div class="empty">Select job from the list to inspect details, paths, and logs.</div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

@@ -26,6 +26,8 @@ env/
 .hypothesis/
 .pyre/
 .cache/
+node_modules/
+.promptfoo/
 
 # -----------------------------
 # Test / coverage / logs

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import csv
 import fcntl
-import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
+
+from agent.storage_roots import storage_root
 
 REGISTRY_COLUMNS = (
     "job_id",
@@ -37,8 +38,7 @@ TERMINAL_STATE_PREFIXES = (
 
 
 def default_logs_root() -> Path:
-    root = os.environ.get("HPC_LOGS_LOCAL_ROOT", os.environ.get("HPC_JOBS_LOCAL_ROOT", "/s/agent_rw/hpc_logs"))
-    return Path(root).expanduser()
+    return storage_root("hpc_logs")
 
 
 def registry_path(root: Path | None = None) -> Path:
@@ -106,7 +106,6 @@ class JobRecord:
 
     @classmethod
     def from_row(cls, row: list[str], root: Path) -> JobRecord:
-        row = normalize_legacy_row(row)
         padded = row[: len(REGISTRY_COLUMNS)] + ["-"] * max(0, len(REGISTRY_COLUMNS) - len(row))
         return cls(*padded[: len(REGISTRY_COLUMNS)], root=root, extras=tuple(row[len(REGISTRY_COLUMNS) :]))
 
@@ -176,15 +175,11 @@ class JobRecord:
 
     @property
     def resolved_input_method(self) -> str:
-        if self.input_method not in {"", "-"}:
-            return self.input_method
-        return read_key_value_file(self.job_meta_path).get("input_method", "-")
+        return self.input_method
 
     @property
     def resolved_submit_argv(self) -> str:
-        if self.submit_argv not in {"", "-"}:
-            return self.submit_argv
-        return read_key_value_file(self.job_meta_path).get("submit_argv", "-")
+        return self.submit_argv
 
     @property
     def has_submit_provenance(self) -> bool:
@@ -372,34 +367,3 @@ class JobRegistry:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             yield
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-
-
-def normalize_legacy_row(row: list[str]) -> list[str]:
-    if len(row) < 10:
-        return row
-    state = row[5]
-    exit_code = row[6]
-    finished_at = row[7]
-    candidate_polled_at = row[8]
-    if exit_code != "by":
-        return row
-    if not finished_at.isdigit():
-        return row
-    if parse_iso_datetime(candidate_polled_at) is None:
-        return row
-    merged_state = f"{state} by {finished_at}"
-    last_polled_at = row[9] if len(row) > 9 else "-"
-    normalized = [
-        row[0],
-        row[1],
-        row[2],
-        row[3],
-        row[4],
-        merged_state,
-        "-",
-        candidate_polled_at,
-        last_polled_at,
-    ]
-    if len(row) > 10:
-        normalized.extend(row[10:])
-    return normalized

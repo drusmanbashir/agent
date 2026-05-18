@@ -255,9 +255,14 @@ spawn_worker() {
   worker_pid="$!"
   launched_at="$(date -Iseconds)"
   printf '%s\n' "${worker_pid}" > "${WORKER_PID_FILE}"
+  write_spawn_meta "${worker_pid}" "${requested_schedule}" "${schedule_source}" "${launched_at}"
 
   while (( handshake_tries < 10 )); do
-    worker_state="$(meta_field "${WORKER_META_FILE}" "worker_state" || true)"
+    if [[ -f "${WORKER_META_FILE}" ]]; then
+      worker_state="$(meta_field "${WORKER_META_FILE}" "worker_state" || true)"
+    else
+      worker_state=""
+    fi
     case "${worker_state}" in
       running|finished|failed|stopped)
         echo "poll_worker_status=spawned"
@@ -283,7 +288,11 @@ spawn_worker() {
     handshake_tries=$((handshake_tries + 1))
   done
 
-  worker_state="$(meta_field "${WORKER_META_FILE}" "worker_state" || true)"
+  if [[ -f "${WORKER_META_FILE}" ]]; then
+    worker_state="$(meta_field "${WORKER_META_FILE}" "worker_state" || true)"
+  else
+    worker_state=""
+  fi
   case "${worker_state}" in
     running|finished|failed|stopped)
       ;;

@@ -16,7 +16,7 @@ from googleapiclient.discovery import build
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/spreadsheets.readonly",
 ]
 
@@ -106,6 +106,35 @@ def _date_from_google(value: str) -> datetime:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
     parsed_date = datetime.fromisoformat(value).date()
     return datetime.combine(parsed_date, time.min, tzinfo=timezone.utc)
+
+
+def create_calendar_alert(
+    calendar_svc: Any,
+    calendar_id: str,
+    *,
+    title: str,
+    start: datetime,
+    end: datetime,
+    description: str = "",
+    tz_name: str = "Europe/London",
+    popup_minutes: int = 30,
+) -> dict[str, Any]:
+    body = {
+        "summary": title,
+        "description": description,
+        "start": {"dateTime": start.isoformat(), "timeZone": tz_name},
+        "end": {"dateTime": end.isoformat(), "timeZone": tz_name},
+        "attendees": [],
+        "reminders": {
+            "useDefault": False,
+            "overrides": [{"method": "popup", "minutes": popup_minutes}],
+        },
+    }
+    return calendar_svc.events().insert(
+        calendarId=calendar_id,
+        body=body,
+        sendUpdates="none",
+    ).execute()
 
 
 def _normalize_header(name: str) -> str:

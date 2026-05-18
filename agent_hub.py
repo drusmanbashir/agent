@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
+from agent.storage_roots import storage_root
 
 REPO_ROOT = Path(__file__).resolve().parent
 GMAIL_ROOT = REPO_ROOT / "agent" / "gmail_agent"
@@ -21,6 +22,10 @@ LINKEDIN_ROOT = REPO_ROOT / "agent" / "linkedin_agent"
 DICOM_CLI = REPO_ROOT / "agent" / "dicom_xnat_agent" / "dicom_xnat_agent" / "cli.py"
 HPC_CLI = REPO_ROOT / "agent" / "hpc_agent" / "hpc_agent" / "cli.py"
 UTILZ_OVERLAY_GIF_SCRIPT = Path.home() / "code" / "utilz" / "utilz" / "overlay_grid_gif.py"
+TMP_ROOT = storage_root("tmp_root")
+HPC_BACKUP_ROOT = TMP_ROOT / "hpc_agent_backups"
+XNAT_DOWNLOAD_ROOT = TMP_ROOT / "xnat_downloads"
+XNAT_RESOURCE_ROOT = TMP_ROOT / "xnat_resources"
 
 if str(GMAIL_ROOT) not in sys.path:
     sys.path.insert(0, str(GMAIL_ROOT))
@@ -62,6 +67,9 @@ def _default_oauth_client_json() -> str:
     shared = SHARED_SECRETS.get("GMAIL_OAUTH_CLIENT_JSON")
     if shared and Path(shared).exists():
         return shared
+    stable = "/s/agent_rw/conf/tokens/gorlani123_oauth_client.json"
+    if Path(stable).exists():
+        return stable
     email_agent = "/home/ub/.config/email-agent/oauth_client.json"
     if Path(email_agent).exists():
         return email_agent
@@ -102,7 +110,7 @@ def _load_gmail_cfg() -> dict[str, Any]:
     mdt = dict(raw.get("mdt", {}) or {})
 
     gm.setdefault("oauth_client_json", _default_oauth_client_json())
-    gm.setdefault("token_json", SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json"))
+    gm.setdefault("token_json", SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json"))
     gm.setdefault("output_dir", SHARED_SECRETS.get("GMAIL_OUTPUT_DIR", "/s/agent_rw/index"))
     mdt.setdefault("spreadsheet_id", SHARED_SECRETS.get("GMAIL_SPREADSHEET_ID", DEFAULT_SPREADSHEET_ID))
 
@@ -381,7 +389,7 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
         <label>Calendar ID</label><input name="calendar_id" value="primary" />
         <label>Assignee</label><input name="assignee" value="UB" />
         <label>OAuth Client JSON</label><input name="oauth_client_json" value="{escape(str(gm.get('oauth_client_json', _default_oauth_client_json())))}" />
-        <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/cache/gmail_token.json')))}" />
+        <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/conf/tokens/gorlani123_google_rw.json')))}" />
         <label>Output JSON</label><input name="out_path" value="{escape(str(Path(gm.get('output_dir', '/s/agent_rw/index')) / 'gmail_briefing.json'))}" />
         <button type="submit">Run Gmail Briefing</button>
       </form>
@@ -394,7 +402,7 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
         <label>Sheet (.ods)</label><input name="sheet_path" value="{escape(str(mdt.get('sheet', '/home/ub/code/agent/sample.ods')))}" />
         <label>Spreadsheet ID</label><input name="spreadsheet_id" value="{escape(str(mdt.get('spreadsheet_id', DEFAULT_SPREADSHEET_ID)))}" />
         <label>OAuth Client JSON</label><input name="oauth_client_json" value="{escape(str(gm.get('oauth_client_json', _default_oauth_client_json())))}" />
-        <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/cache/gmail_token.json')))}" />
+        <label>Token JSON</label><input name="token_json" value="{escape(str(gm.get('token_json', '/s/agent_rw/conf/tokens/gorlani123_google_rw.json')))}" />
         <label>Initials</label><input name="initials" value="UB" />
         <label>Week</label>
         <select name="week"><option value="current">current</option><option value="next" selected>next</option></select>
@@ -468,7 +476,7 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
       <p class="hint">Downloads all <code>IMAGE</code> resources for one XNAT project into a local destination folder.</p>
       <form method="post" action="/run/dicom-download-nifti">
         <label>Project ID</label><input name="project_id" value="" />
-        <label>Destination folder</label><input name="dest_folder" value="/tmp/xnat_downloads" />
+        <label>Destination folder</label><input name="dest_folder" value="{escape(str(XNAT_DOWNLOAD_ROOT))}" />
         <label class="inline"><input type="checkbox" name="no_ask" checked />No interactive prompt</label>
         <button type="submit">Run download-nifti</button>
       </form>
@@ -479,7 +487,7 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
       <p class="hint">Uploads local files to matching project/subject/scan on XNAT by filename metadata. Enable <code>Create missing subject</code> only when you explicitly want new subjects created.</p>
       <form method="post" action="/run/dicom-upload-resource">
         <label>Project ID</label><input name="project_id" value="" />
-        <label>Resource folder</label><input name="resource_folder" value="/tmp/xnat_resources" />
+        <label>Resource folder</label><input name="resource_folder" value="{escape(str(XNAT_RESOURCE_ROOT))}" />
         <label>Resource label</label><input name="resource_label" value="LABELMAP" />
         <label>Errors file (optional)</label><input name="errors_file" value="" />
         <label class="inline"><input type="checkbox" name="ignore_description" />Ignore description</label>
@@ -496,10 +504,10 @@ def _render_page(result: str = "", active_page: str = "home") -> str:
       <p class="hint">Pulls one folder from HPC to local destination using <code>rsync</code>. Keep backup enabled to preserve replaced local files under backup root.</p>
       <form method="post" action="/run/hpc-download">
         <label>Dataset folder</label><input name="dataset_folder" value="nodesthick" />
-        <label>Local destination</label><input name="local_dest" value="/tmp/hpc_downloads" />
+        <label>Local destination</label><input name="local_dest" value="{escape(str(TMP_ROOT / 'hpc_downloads'))}" />
         <label>Remote login</label><input name="remote" value="mpx588@login.hpc.qmul.ac.uk" />
         <label>Remote root</label><input name="remote_root" value="/data/EECS-LITQ/fran_storage/datasets/xnat_shadow" />
-        <label>Backup root</label><input name="backup_root" value="/tmp/hpc_agent_backups" />
+        <label>Backup root</label><input name="backup_root" value="{escape(str(HPC_BACKUP_ROOT))}" />
         <label class="inline"><input type="checkbox" name="disable_backup" />Disable backup</label>
         <label class="inline"><input type="checkbox" name="yes" checked />Skip confirmation</label>
         <button type="submit">Run download</button>
@@ -625,7 +633,7 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                     sheet_path=sheet_path,
                     spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
                     oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
-                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")))),
                 )
                 meetings = extract_mdt_meetings_for_week(
                     ods_path=sheet_path,
@@ -642,7 +650,7 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                         meetings=meetings,
                         spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
                         oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
-                        token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                        token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")))),
                     )
                     if shutil.which("xdg-open"):
                         for url in urls:
@@ -659,7 +667,7 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                     sheet_path=sheet_path,
                     spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
                     oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
-                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")))),
                 )
                 meetings = extract_next_week_mdt_meetings(
                     ods_path=sheet_path,
@@ -681,7 +689,7 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                     sheet_path=Path(_get(form, "sheet_path")),
                     spreadsheet_id=_get(form, "spreadsheet_id", DEFAULT_SPREADSHEET_ID),
                     oauth_client_json=Path(_get(form, "oauth_client_json", _default_oauth_client_json())),
-                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/cache/gmail_token.json")))),
+                    token_json=Path(_get(form, "token_json", str(SHARED_SECRETS.get("GMAIL_TOKEN_JSON", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")))),
                     initials=initials,
                     week=week,
                     open_sheet_view=_is_checked(form, "open_sheet_view"),
@@ -789,7 +797,7 @@ class AgentHubHandler(BaseHTTPRequestHandler):
                     "--remote-root",
                     _get(form, "remote_root", "/data/EECS-LITQ/fran_storage/datasets/xnat_shadow"),
                     "--backup-root",
-                    _get(form, "backup_root", "/tmp/hpc_agent_backups"),
+                    _get(form, "backup_root", str(HPC_BACKUP_ROOT)),
                 ]
                 if _is_checked(form, "disable_backup"):
                     args.append("--no-backup")
@@ -904,7 +912,7 @@ def main() -> None:
                 sheet_path=Path(mdt.get("sheet", "/home/ub/code/agent/sample.ods")),
                 spreadsheet_id=str(mdt.get("spreadsheet_id", DEFAULT_SPREADSHEET_ID)),
                 oauth_client_json=Path(cfg.get("gmail", {}).get("oauth_client_json", _default_oauth_client_json())),
-                token_json=Path(cfg.get("gmail", {}).get("token_json", "/s/agent_rw/cache/gmail_token.json")),
+                token_json=Path(cfg.get("gmail", {}).get("token_json", "/s/agent_rw/conf/tokens/gorlani123_google_rw.json")),
                 initials="UB",
                 week="current",
             )
